@@ -672,11 +672,11 @@ export default function ColorAnalysis() {
                 <SkeletonBlock w="w-3/4" h="h-3" />
               </div>
             ) : error ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 <p className="text-sm" style={{ color: '#cb997e', fontWeight: 500, letterSpacing: '0.05em' }}>
                   Analysis failed
                 </p>
-                <p className="text-sm" style={{ color: '#a5a58d' }}>{error}</p>
+                <p className="text-sm" style={{ color: '#6b705c', lineHeight: 1.6 }}>{error}</p>
               </div>
             ) : result ? (
               <div className="flex flex-col gap-4 animate-fade-up">

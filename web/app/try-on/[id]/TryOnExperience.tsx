@@ -20,6 +20,7 @@ interface Props {
 }
 
 type Unit = 'imperial' | 'metric';
+type ProgStatus = 'active' | 'done' | '';
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -28,6 +29,48 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Could not read file.'));
     reader.readAsDataURL(file);
   });
+}
+
+const heightInputStyle: React.CSSProperties = {
+  width: '70px',
+  padding: '10px 12px',
+  fontSize: '1rem',
+  fontFamily: 'inherit',
+  background: 'rgba(255,232,214,0.55)',
+  border: '1px solid rgba(107,112,92,0.25)',
+  borderRadius: '2px',
+  color: '#6b705c',
+  outline: 'none',
+  transition: 'border-color 0.15s',
+};
+
+function ProgStep({ num, label, status }: { num: number; label: string; status: ProgStatus }) {
+  const isActive = status === 'active';
+  const isDone = status === 'done';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '10px',
+      fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase',
+      color: isDone ? '#cb997e' : isActive ? '#6b705c' : '#b7b7a4',
+      cursor: 'default', flexShrink: 0,
+    }}>
+      <div style={{
+        width: '22px', height: '22px', borderRadius: '50%',
+        border: `1px solid ${isDone ? '#cb997e' : isActive ? '#6b705c' : '#b7b7a4'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '9px', flexShrink: 0, transition: 'all 0.3s',
+        background: isDone ? '#cb997e' : isActive ? '#6b705c' : 'transparent',
+        color: isDone || isActive ? '#ffe8d6' : 'inherit',
+      }}>
+        {isDone ? (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : num}
+      </div>
+      <span>{label}</span>
+    </div>
+  );
 }
 
 export default function TryOnExperience({ itemId }: Props) {
@@ -58,25 +101,15 @@ export default function TryOnExperience({ itemId }: Props) {
   const [photoMode, setPhotoMode] = useState<'upload' | 'camera'>('upload');
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  // Load product from Snowflake.
   useEffect(() => {
     let alive = true;
     setProductError('');
     getProduct(itemId)
-      .then((p) => {
-        if (!alive) return;
-        setProduct(p);
-      })
-      .catch((e: unknown) => {
-        if (!alive) return;
-        setProductError(e instanceof Error ? e.message : 'Failed to load item.');
-      });
-    return () => {
-      alive = false;
-    };
+      .then((p) => { if (alive) setProduct(p); })
+      .catch((e: unknown) => { if (alive) setProductError(e instanceof Error ? e.message : 'Failed to load item.'); });
+    return () => { alive = false; };
   }, [itemId]);
 
-  // Convert garment image URL to a data URL so the AI call can use it.
   useEffect(() => {
     if (!product) return;
     const url = product.image_url ?? product.try_on_ready_image_url;
@@ -84,38 +117,22 @@ export default function TryOnExperience({ itemId }: Props) {
     let alive = true;
     setGarmentLoading(true);
     fetchImageAsDataUrl(url)
-      .then((d) => {
-        if (alive) setGarmentImage(d);
-      })
-      .catch(() => {
-        // Fall back to using the original URL — backend can refetch if needed.
-      })
-      .finally(() => {
-        if (alive) setGarmentLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
+      .then((d) => { if (alive) setGarmentImage(d); })
+      .catch(() => {})
+      .finally(() => { if (alive) setGarmentLoading(false); });
+    return () => { alive = false; };
   }, [product]);
 
-  // Run pose estimation once a person photo is uploaded.
   useEffect(() => {
     setBodyMetrics(null);
     if (!personImage) return;
     let alive = true;
     estimateBody(personImage)
-      .then((m) => {
-        if (alive) setBodyMetrics(m);
-      })
-      .catch(() => {
-        if (alive) setBodyMetrics(null);
-      });
-    return () => {
-      alive = false;
-    };
+      .then((m) => { if (alive) setBodyMetrics(m); })
+      .catch(() => { if (alive) setBodyMetrics(null); });
+    return () => { alive = false; };
   }, [personImage]);
 
-  // Start/stop camera stream based on photoMode
   useEffect(() => {
     if (photoMode !== 'camera') {
       cameraStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -133,9 +150,7 @@ export default function TryOnExperience({ itemId }: Props) {
           cameraVideoRef.current.play().catch(() => {});
         }
       })
-      .catch(() => {
-        if (alive) setPhotoMode('upload');
-      });
+      .catch(() => { if (alive) setPhotoMode('upload'); });
     return () => {
       alive = false;
       cameraStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -150,7 +165,6 @@ export default function TryOnExperience({ itemId }: Props) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d')!;
-    // Mirror to match what the user sees in the preview
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
@@ -164,12 +178,8 @@ export default function TryOnExperience({ itemId }: Props) {
     let n = 3;
     const tick = setInterval(() => {
       n -= 1;
-      if (n === 0) {
-        clearInterval(tick);
-        capturePhoto();
-      } else {
-        setCountdown(n);
-      }
+      if (n === 0) { clearInterval(tick); capturePhoto(); }
+      else setCountdown(n);
     }, 1000);
   }
 
@@ -186,13 +196,10 @@ export default function TryOnExperience({ itemId }: Props) {
       const f = parseInt(feet, 10);
       const i = parseInt(inches, 10);
       if (Number.isNaN(f) && Number.isNaN(i)) return '';
-      const safeF = Number.isNaN(f) ? 0 : f;
-      const safeI = Number.isNaN(i) ? 0 : i;
-      return `${safeF}'${safeI}"`;
+      return `${Number.isNaN(f) ? 0 : f}'${Number.isNaN(i) ? 0 : i}"`;
     }
     const c = parseInt(cm, 10);
-    if (Number.isNaN(c)) return '';
-    return `${c} cm`;
+    return Number.isNaN(c) ? '' : `${c} cm`;
   }, [unit, feet, inches, cm]);
 
   const canSubmit =
@@ -205,10 +212,7 @@ export default function TryOnExperience({ itemId }: Props) {
 
   async function handlePersonFile(file: File | null | undefined) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file.');
-      return;
-    }
+    if (!file.type.startsWith('image/')) { setError('Please select an image file.'); return; }
     try {
       const dataUrl = await fileToBase64(file);
       setPersonImage(dataUrl);
@@ -226,13 +230,7 @@ export default function TryOnExperience({ itemId }: Props) {
     setModalOpen(true);
     try {
       const [tryOnUrl, fit] = await Promise.all([
-        generateTryOn({
-          personImage,
-          garmentImage,
-          size: selectedSize,
-          height: heightString,
-          bodyMetrics,
-        }),
+        generateTryOn({ personImage, garmentImage, size: selectedSize, height: heightString, bodyMetrics }),
         getFitRecommendation(personImage, heightString).catch(() => ''),
       ]);
       setGeneratedImage(tryOnUrl);
@@ -246,270 +244,371 @@ export default function TryOnExperience({ itemId }: Props) {
 
   const garmentSrc = garmentImage ?? product?.image_url ?? product?.try_on_ready_image_url ?? '';
 
+  const step1Done = !!personImage;
+  const step2Done = (!!selectedSize || !itemHasSizes) && !!heightString;
+
+  const step1Status: ProgStatus = step1Done ? 'done' : 'active';
+  const step2Status: ProgStatus = !step1Done ? '' : step2Done ? 'done' : 'active';
+  const step3Status: ProgStatus = step1Done && step2Done ? 'active' : '';
+
   return (
     <>
-      <section
-        className="relative overflow-hidden"
-        style={{ paddingTop: '140px', paddingBottom: '32px', backgroundColor: '#ffe8d6' }}
-      >
-        <div
-          className="absolute top-0 left-0 right-0 pointer-events-none"
+      <style>{`
+        .try-on-workspace {
+          display: grid;
+          grid-template-columns: 1fr;
+          align-items: start;
+          background: #ffe8d6;
+        }
+        .try-on-garment-panel {
+          position: relative;
+          height: 55vw;
+          min-height: 280px;
+          overflow: hidden;
+        }
+        .try-on-steps-panel {
+          padding: 40px 24px 72px;
+          display: flex;
+          flex-direction: column;
+        }
+        @media (min-width: 960px) {
+          .try-on-workspace { grid-template-columns: 42% 1fr; }
+          .try-on-garment-panel { position: sticky; top: 68px; height: calc(100vh - 68px); }
+          .try-on-steps-panel { padding: 52px 68px 96px; }
+        }
+        .upload-zone:hover {
+          border-color: rgba(203,153,126,0.55) !important;
+          background: rgba(221,190,169,0.26) !important;
+        }
+        .size-chip:hover { border-color: #6b705c !important; }
+        .btn-try-on:hover:not(:disabled) {
+          background: #cb997e !important;
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px rgba(107,112,92,0.22);
+        }
+        .btn-try-on:active:not(:disabled) { transform: translateY(0); }
+        .mode-btn:hover { opacity: 0.85; }
+        .back-link:hover { opacity: 1 !important; }
+      `}</style>
+
+      {/* Product Intro */}
+      <section style={{
+        padding: 'clamp(100px, 10vw, 116px) clamp(24px, 4vw, 64px) 52px',
+        backgroundColor: '#ddbea9',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <Link
+          href="/"
+          className="back-link"
           style={{
-            height: '320px',
-            background: 'linear-gradient(180deg, #ddbea9 0%, #ffe8d6 100%)',
-            zIndex: 0,
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+            color: '#6b705c', textDecoration: 'none',
+            marginBottom: '28px', opacity: 0.65, transition: 'opacity 0.2s',
           }}
-        />
+        >
+          <ArrowLeft size={13} />
+          Back to Collections
+        </Link>
 
-        <div className="relative z-10 px-8 md:px-16 max-w-7xl mx-auto">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 mb-8 text-xs uppercase"
-            style={{
-              color: '#6b705c',
-              letterSpacing: '0.25em',
-              textDecoration: 'none',
-            }}
-          >
-            <ArrowLeft size={14} />
-            Back to Collections
-          </Link>
+        <span style={{
+          display: 'block', fontSize: '10px',
+          letterSpacing: '0.38em', textTransform: 'uppercase',
+          color: '#cb997e', marginBottom: '14px',
+        }}>
+          Virtual Try-On
+        </span>
 
-          <span
-            className="block text-xs uppercase mb-5"
-            style={{ color: '#cb997e', letterSpacing: '0.35em' }}
-          >
-            Virtual Try-On
-          </span>
-          <h1
-            className="font-light leading-none mb-4"
-            style={{
-              fontSize: 'clamp(2rem, 5vw, 4rem)',
-              color: '#6b705c',
-              fontFamily: "'Georgia', serif",
-              lineHeight: '1.05',
-            }}
-          >
-            {product?.name ?? 'Loading…'}
-          </h1>
+        <h1 style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontWeight: 300,
+          fontSize: 'clamp(2.4rem, 4.5vw, 4.2rem)',
+          color: '#6b705c', lineHeight: 1.0, marginBottom: '8px',
+        }}>
+          {product?.name ?? 'Loading…'}
+        </h1>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '6px' }}>
           {product?.brand && (
-            <p
-              className="text-xs uppercase mb-2"
-              style={{ color: '#6b705c', opacity: 0.7, letterSpacing: '0.25em' }}
-            >
+            <span style={{
+              fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+              color: '#6b705c', opacity: 0.55,
+            }}>
               {product.brand}
-            </p>
+            </span>
           )}
-          <div
-            style={{
-              height: '1px',
-              width: '60px',
-              backgroundColor: '#cb997e',
-              marginTop: '18px',
-              marginBottom: '24px',
-            }}
-          />
+          {product?.price != null && (
+            <>
+              <span style={{ color: '#cb997e', opacity: 0.5, fontSize: '11px' }}>·</span>
+              <span style={{ fontSize: '10px', letterSpacing: '0.2em', color: '#6b705c', opacity: 0.75 }}>
+                ${Number(product.price).toFixed(0)} {product.currency ?? ''}
+              </span>
+            </>
+          )}
         </div>
+
+        <div style={{ width: '56px', height: '1px', backgroundColor: '#cb997e', marginTop: '20px' }} />
       </section>
 
-      <section className="relative px-8 md:px-16 pb-24" style={{ backgroundColor: '#ffe8d6' }}>
-        <div className="max-w-7xl mx-auto">
-          {productError && (
-            <div
-              className="mb-8 p-4 text-sm"
+      {/* Workspace */}
+      <main className="try-on-workspace">
+
+        {/* Garment Panel */}
+        <div className="try-on-garment-panel">
+          {garmentSrc ? (
+            <img
+              src={garmentSrc}
+              alt={product?.name ?? 'Garment'}
               style={{
-                color: '#6b705c',
-                backgroundColor: 'rgba(203,153,126,0.18)',
-                border: '1px solid rgba(203,153,126,0.35)',
-                borderRadius: '3px',
+                width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: 'center top',
+                filter: 'brightness(0.85) saturate(0.75)',
+                display: 'block',
               }}
-            >
+            />
+          ) : (
+            <div style={{
+              width: '100%', height: '100%', backgroundColor: '#ddbea9',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', color: '#6b705c' }}>
+                {garmentLoading ? 'Loading…' : 'Image unavailable.'}
+              </span>
+            </div>
+          )}
+
+          {/* Gradient overlay */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to top, rgba(67,72,54,0.92) 0%, rgba(67,72,54,0.45) 30%, transparent 60%)',
+          }} />
+
+          {/* Badge */}
+          <div style={{
+            position: 'absolute', top: '28px', left: '28px',
+            padding: '5px 14px',
+            fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase',
+            background: 'rgba(255,232,214,0.12)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,232,214,0.28)',
+            color: '#ffe8d6', borderRadius: '2px',
+          }}>
+            The Piece
+          </div>
+
+          {/* Garment info at bottom */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '40px 40px 44px' }}>
+            <div style={{ width: '40px', height: '1px', backgroundColor: 'rgba(203,153,126,0.7)', marginBottom: '16px' }} />
+            <p style={{
+              fontSize: '9px', letterSpacing: '0.32em', textTransform: 'uppercase',
+              color: '#ddbea9', marginBottom: '10px',
+            }}>
+              {product?.subcategory ?? product?.category ?? 'Clothing'}
+            </p>
+            <h2 style={{
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontWeight: 300,
+              fontSize: 'clamp(1.6rem, 2.2vw, 2.4rem)',
+              color: '#ffe8d6', lineHeight: 1.1, marginBottom: '8px',
+            }}>
+              {product?.name ?? ''}
+            </h2>
+            {product?.price != null && (
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'rgba(255,232,214,0.6)' }}>
+                ${Number(product.price).toFixed(0)} · {product.brand ?? ''}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Steps Panel */}
+        <div className="try-on-steps-panel">
+
+          {productError && (
+            <div style={{
+              marginBottom: '24px', padding: '14px 16px', fontSize: '0.85rem',
+              color: '#6b705c', backgroundColor: 'rgba(203,153,126,0.18)',
+              border: '1px solid rgba(203,153,126,0.35)', borderRadius: '3px',
+            }}>
               {productError}
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Column 1: person photo */}
-            <Panel title="Your Photo" eyebrow="Step 1">
-              {/* Mode tabs — only visible when no photo is selected */}
-              {!personImage && (
-                <div
-                  style={{
-                    display: 'flex',
-                    marginBottom: '14px',
-                    border: '1px solid rgba(107,112,92,0.3)',
-                    borderRadius: '2px',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {([
-                    { mode: 'upload', icon: <Upload size={12} />, label: 'Upload' },
-                    { mode: 'camera', icon: <Camera size={12} />, label: 'Take Photo' },
-                  ] as const).map(({ mode, icon, label }) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setPhotoMode(mode)}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        padding: '10px',
-                        fontSize: '0.65rem',
-                        letterSpacing: '0.2em',
-                        textTransform: 'uppercase',
-                        border: 'none',
-                        backgroundColor: photoMode === mode ? '#6b705c' : 'transparent',
-                        color: photoMode === mode ? '#ffe8d6' : '#6b705c',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.18s ease, color 0.18s ease',
-                      }}
-                    >
-                      {icon}
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* Progress Row */}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '52px' }}>
+            <ProgStep num={1} label="Your Photo" status={step1Status} />
+            <div style={{ flex: 1, height: '1px', background: 'rgba(107,112,92,0.18)', margin: '0 14px' }} />
+            <ProgStep num={2} label="Measurements" status={step2Status} />
+            <div style={{ flex: 1, height: '1px', background: 'rgba(107,112,92,0.18)', margin: '0 14px' }} />
+            <ProgStep num={3} label="Generate" status={step3Status} />
+          </div>
 
-              {/* Upload zone */}
-              {!personImage && photoMode === 'upload' && (
-                <>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handlePersonFile(e.dataTransfer.files?.[0]);
-                    }}
-                    style={{
-                      width: '100%',
-                      aspectRatio: '3 / 4',
-                      borderRadius: '3px',
-                      border: '1px dashed rgba(107,112,92,0.4)',
-                      backgroundColor: 'rgba(221,190,169,0.25)',
-                      cursor: 'pointer',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <div style={{ textAlign: 'center', padding: '32px', color: '#6b705c' }}>
-                      <Upload size={28} style={{ margin: '0 auto 14px', opacity: 0.7 }} />
-                      <p style={{ fontSize: '0.7rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '8px' }}>
-                        Upload a photo
-                      </p>
-                      <p style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic', fontSize: '0.85rem', opacity: 0.75, lineHeight: 1.6 }}>
-                        Full-body, soft natural light works best.
-                      </p>
-                    </div>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(e) => handlePersonFile(e.target.files?.[0])}
-                  />
-                </>
-              )}
+          {/* Step 01: Your Photo */}
+          <div style={{ padding: '36px 0', borderBottom: '1px solid rgba(107,112,92,0.1)' }}>
+            <span style={{
+              fontSize: '9px', letterSpacing: '0.38em', textTransform: 'uppercase',
+              color: '#cb997e', marginBottom: '8px', display: 'block',
+            }}>
+              Step 01
+            </span>
+            <h2 style={{
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontWeight: 300, fontSize: '1.6rem',
+              color: '#6b705c', lineHeight: 1.15, marginBottom: '24px',
+            }}>
+              Your Photo
+            </h2>
 
-              {/* Camera view */}
-              {!personImage && photoMode === 'camera' && (
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '100%',
-                    aspectRatio: '3 / 4',
-                    borderRadius: '3px',
-                    backgroundColor: '#000',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <video
-                    ref={cameraVideoRef}
-                    playsInline
-                    muted
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                      transform: 'scaleX(-1)',
-                    }}
-                  />
-                  {/* Countdown overlay */}
-                  {countdown !== null && (
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'rgba(0,0,0,0.25)',
-                    }}>
-                      <span style={{
-                        fontSize: '7rem',
-                        fontFamily: "'Georgia', serif",
-                        color: '#ffe8d6',
-                        fontWeight: 300,
-                        lineHeight: 1,
-                        textShadow: '0 2px 24px rgba(0,0,0,0.5)',
-                      }}>
-                        {countdown}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Shutter button */}
+            {/* Mode toggle */}
+            {!personImage && (
+              <div style={{
+                display: 'inline-flex',
+                border: '1px solid rgba(107,112,92,0.28)',
+                borderRadius: '2px', overflow: 'hidden', marginBottom: '20px',
+              }}>
+                {([
+                  { mode: 'upload' as const, icon: <Upload size={11} />, label: 'Upload' },
+                  { mode: 'camera' as const, icon: <Camera size={11} />, label: 'Take Photo' },
+                ]).map(({ mode, icon, label }) => (
                   <button
+                    key={mode}
                     type="button"
-                    onClick={startCountdown}
-                    disabled={countdown !== null}
-                    aria-label="Take photo"
+                    className="mode-btn"
+                    onClick={() => setPhotoMode(mode)}
                     style={{
-                      position: 'absolute',
-                      bottom: '20px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '999px',
-                      backgroundColor: 'rgba(255,232,214,0.9)',
-                      border: '3px solid #6b705c',
-                      cursor: countdown !== null ? 'default' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: countdown !== null ? 0.5 : 1,
-                      transition: 'opacity 0.2s ease, background-color 0.15s ease',
+                      padding: '9px 20px',
+                      fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                      border: 'none',
+                      background: photoMode === mode ? '#6b705c' : 'transparent',
+                      color: photoMode === mode ? '#ffe8d6' : '#6b705c',
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '7px',
+                      transition: 'background 0.15s, color 0.15s',
                     }}
-                    onMouseEnter={e => { if (countdown === null) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ffe8d6'; }}
-                    onMouseLeave={e => { if (countdown === null) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,232,214,0.9)'; }}
                   >
-                    <div style={{ width: '36px', height: '36px', borderRadius: '999px', backgroundColor: '#6b705c' }} />
+                    {icon} {label}
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
+            )}
 
-              {/* Captured / uploaded photo */}
-              {personImage && (
+            {/* Upload zone */}
+            {!personImage && photoMode === 'upload' && (
+              <>
                 <div
+                  className="upload-zone"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); handlePersonFile(e.dataTransfer.files?.[0]); }}
                   style={{
-                    position: 'relative',
-                    width: '100%',
-                    aspectRatio: '3 / 4',
+                    width: '100%', aspectRatio: '3 / 4', maxHeight: '420px',
+                    border: '1px solid rgba(107,112,92,0.22)',
                     borderRadius: '3px',
-                    backgroundColor: '#000',
-                    overflow: 'hidden',
+                    background: 'rgba(221,190,169,0.16)',
+                    cursor: 'pointer', overflow: 'hidden',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'relative', transition: 'border-color 0.2s, background 0.2s',
                   }}
                 >
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: '14px', padding: '32px', textAlign: 'center',
+                    position: 'relative', zIndex: 1,
+                  }}>
+                    <svg width="56" height="80" viewBox="0 0 56 80" fill="none" style={{ opacity: 0.35 }}>
+                      <ellipse cx="28" cy="16" rx="10" ry="11" stroke="#6b705c" strokeWidth="1.5" />
+                      <path d="M8 72 C8 48 14 36 28 36 C42 36 48 48 48 72" stroke="#6b705c" strokeWidth="1.5" fill="none" />
+                      <path d="M14 42 L4 64 M42 42 L52 64" stroke="#6b705c" strokeWidth="1.5" />
+                    </svg>
+                    <span style={{ fontSize: '9px', letterSpacing: '0.32em', textTransform: 'uppercase', color: '#6b705c' }}>
+                      Upload a full-body photo
+                    </span>
+                    <p style={{
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      fontStyle: 'italic', fontSize: '0.9rem',
+                      color: '#a5a58d', lineHeight: 1.55,
+                    }}>
+                      Front-facing, soft natural<br />light works best.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => handlePersonFile(e.target.files?.[0])}
+                />
+              </>
+            )}
+
+            {/* Camera view */}
+            {!personImage && photoMode === 'camera' && (
+              <div style={{
+                position: 'relative', width: '100%',
+                aspectRatio: '3 / 4', maxHeight: '420px',
+                borderRadius: '3px', background: '#111', overflow: 'hidden',
+              }}>
+                <video
+                  ref={cameraVideoRef}
+                  playsInline
+                  muted
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', display: 'block',
+                    transform: 'scaleX(-1)',
+                  }}
+                />
+                {countdown !== null && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(0,0,0,0.28)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      fontWeight: 300, fontSize: '6rem',
+                      color: '#ffe8d6', lineHeight: 1,
+                      textShadow: '0 2px 24px rgba(0,0,0,0.4)',
+                    }}>
+                      {countdown}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={startCountdown}
+                  disabled={countdown !== null}
+                  aria-label="Take photo"
+                  style={{
+                    position: 'absolute', bottom: '20px', left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '58px', height: '58px', borderRadius: '50%',
+                    background: 'rgba(255,232,214,0.9)',
+                    border: '3px solid #6b705c',
+                    cursor: countdown !== null ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: countdown !== null ? 0.5 : 1,
+                    transition: 'opacity 0.2s',
+                  }}
+                >
+                  <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#6b705c' }} />
+                </button>
+              </div>
+            )}
+
+            {/* Photo preview */}
+            {personImage && (
+              <>
+                <div style={{
+                  position: 'relative', width: '100%',
+                  aspectRatio: '3 / 4', maxHeight: '420px',
+                  borderRadius: '3px', overflow: 'hidden',
+                }}>
                   <img
                     src={personImage}
-                    alt="You"
+                    alt="Your photo"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                   <button
@@ -517,299 +616,192 @@ export default function TryOnExperience({ itemId }: Props) {
                     aria-label="Remove photo"
                     onClick={() => setPersonImage(null)}
                     style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '999px',
-                      backgroundColor: 'rgba(255,232,214,0.9)',
-                      color: '#6b705c',
-                      border: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      position: 'absolute', top: '12px', right: '12px',
+                      width: '32px', height: '32px', borderRadius: '50%',
+                      background: 'rgba(255,232,214,0.9)',
+                      border: 'none', color: '#6b705c',
                       cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.15s',
                     }}
                   >
-                    <X size={14} />
+                    <X size={13} />
                   </button>
                 </div>
-              )}
-
-              {personImage && (
-                <p className="mt-3 text-xs" style={{ color: '#6b705c', opacity: 0.65, letterSpacing: '0.05em' }}>
+                <p style={{ marginTop: '10px', fontSize: '10px', color: '#6b705c', opacity: 0.5, letterSpacing: '0.04em' }}>
                   {bodyMetrics ? `Pose detected · ${bodyMetrics.build} build` : 'Reading your proportions…'}
                 </p>
-              )}
-            </Panel>
-
-            {/* Column 2: garment */}
-            <Panel title="The Piece" eyebrow="Step 2">
-              <div
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: '3 / 4',
-                  borderRadius: '3px',
-                  backgroundColor: '#ddbea9',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {garmentSrc ? (
-                  <img
-                    src={garmentSrc}
-                    alt={product?.name ?? 'Garment'}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      fontFamily: "'Georgia', serif",
-                      color: '#6b705c',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    {garmentLoading ? 'Loading…' : 'Image unavailable.'}
-                  </div>
-                )}
-              </div>
-              <div className="mt-4 flex items-baseline justify-between gap-3">
-                <div>
-                  <p
-                    className="text-xs uppercase"
-                    style={{ color: '#cb997e', letterSpacing: '0.25em', marginBottom: '4px' }}
-                  >
-                    {product?.subcategory ?? product?.category ?? '—'}
-                  </p>
-                  <h3
-                    className="font-light"
-                    style={{
-                      fontFamily: "'Georgia', serif",
-                      fontSize: '1.05rem',
-                      color: '#6b705c',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {product?.name ?? 'Loading…'}
-                  </h3>
-                </div>
-                {product?.price != null && (
-                  <p
-                    className="text-xs"
-                    style={{
-                      color: '#6b705c',
-                      letterSpacing: '0.15em',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    ${Number(product.price).toFixed(0)} {product.currency ?? ''}
-                  </p>
-                )}
-              </div>
-              {product?.description && (
-                <p
-                  className="mt-3"
-                  style={{
-                    color: '#6b705c',
-                    opacity: 0.75,
-                    fontSize: '0.85rem',
-                    lineHeight: 1.7,
-                  }}
-                >
-                  {product.description}
-                </p>
-              )}
-            </Panel>
-
-            {/* Column 3: sizing + height + try-on */}
-            <Panel title="Your Fit" eyebrow="Step 3">
-              <div className="flex flex-col gap-6">
-                <div>
-                  <p
-                    className="text-xs uppercase mb-3"
-                    style={{ color: '#cb997e', letterSpacing: '0.25em' }}
-                  >
-                    Size
-                  </p>
-                  {sizes.length === 0 ? (
-                    <p style={{ color: '#6b705c', opacity: 0.7, fontSize: '0.85rem' }}>
-                      No sizes available.
-                    </p>
-                  ) : isOneSize ? (
-                    <div
-                      style={{
-                        padding: '12px 16px',
-                        backgroundColor: '#6b705c',
-                        color: '#ffe8d6',
-                        fontSize: '0.8rem',
-                        letterSpacing: '0.2em',
-                        textTransform: 'uppercase',
-                        borderRadius: '2px',
-                        display: 'inline-block',
-                      }}
-                    >
-                      One size
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {sizes.map((s) => {
-                        const active = selectedSize === s;
-                        return (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setSelectedSize(s)}
-                            style={{
-                              minWidth: '52px',
-                              padding: '10px 14px',
-                              fontSize: '0.78rem',
-                              letterSpacing: '0.15em',
-                              textTransform: 'uppercase',
-                              backgroundColor: active ? '#6b705c' : 'transparent',
-                              color: active ? '#ffe8d6' : '#6b705c',
-                              border: active
-                                ? '1px solid #6b705c'
-                                : '1px solid rgba(107,112,92,0.35)',
-                              borderRadius: '2px',
-                              cursor: 'pointer',
-                              transition: 'all 0.18s ease',
-                            }}
-                          >
-                            {s}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <p
-                    className="text-xs uppercase mb-3"
-                    style={{ color: '#cb997e', letterSpacing: '0.25em' }}
-                  >
-                    Height
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {unit === 'imperial' ? (
-                      <>
-                        <NumberField
-                          value={feet}
-                          onChange={setFeet}
-                          placeholder="ft"
-                          aria-label="Feet"
-                        />
-                        <span style={{ color: '#6b705c', fontSize: '0.8rem' }}>ft</span>
-                        <NumberField
-                          value={inches}
-                          onChange={setInches}
-                          placeholder="in"
-                          aria-label="Inches"
-                        />
-                        <span style={{ color: '#6b705c', fontSize: '0.8rem' }}>in</span>
-                      </>
-                    ) : (
-                      <>
-                        <NumberField
-                          value={cm}
-                          onChange={setCm}
-                          placeholder="cm"
-                          aria-label="Centimeters"
-                        />
-                        <span style={{ color: '#6b705c', fontSize: '0.8rem' }}>cm</span>
-                      </>
-                    )}
-                    <div
-                      style={{
-                        display: 'flex',
-                        marginLeft: 'auto',
-                        border: '1px solid rgba(107,112,92,0.35)',
-                        borderRadius: '2px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {(['imperial', 'metric'] as Unit[]).map((u) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => setUnit(u)}
-                          style={{
-                            padding: '8px 12px',
-                            fontSize: '0.65rem',
-                            letterSpacing: '0.2em',
-                            textTransform: 'uppercase',
-                            border: 'none',
-                            backgroundColor: unit === u ? '#6b705c' : 'transparent',
-                            color: unit === u ? '#ffe8d6' : '#6b705c',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {u === 'imperial' ? 'ft/in' : 'cm'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!canSubmit}
-                  style={{
-                    marginTop: '8px',
-                    padding: '18px 28px',
-                    fontSize: '0.75rem',
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
-                    backgroundColor: canSubmit ? '#6b705c' : 'rgba(107,112,92,0.35)',
-                    color: '#ffe8d6',
-                    border: 'none',
-                    borderRadius: '2px',
-                    cursor: canSubmit ? 'pointer' : 'not-allowed',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    transition: 'background-color 0.25s ease, transform 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (canSubmit)
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#cb997e';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (canSubmit)
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#6b705c';
-                  }}
-                >
-                  Try It On <ArrowUpRight size={14} />
-                </button>
-
-                <p
-                  className="text-xs"
-                  style={{
-                    color: '#6b705c',
-                    opacity: 0.65,
-                    lineHeight: 1.6,
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  We&apos;ll generate a single image of you wearing this piece. Your photo never
-                  leaves the session.
-                </p>
-              </div>
-            </Panel>
+              </>
+            )}
           </div>
+
+          {/* Step 02: Measurements */}
+          <div style={{ padding: '36px 0', borderBottom: '1px solid rgba(107,112,92,0.1)' }}>
+            <span style={{
+              fontSize: '9px', letterSpacing: '0.38em', textTransform: 'uppercase',
+              color: '#cb997e', marginBottom: '8px', display: 'block',
+            }}>
+              Step 02
+            </span>
+            <h2 style={{
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontWeight: 300, fontSize: '1.6rem',
+              color: '#6b705c', lineHeight: 1.15, marginBottom: '24px',
+            }}>
+              Your Measurements
+            </h2>
+
+            {/* Size */}
+            <span style={{
+              fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase',
+              color: '#cb997e', marginBottom: '12px', display: 'block',
+            }}>
+              Size
+            </span>
+            {sizes.length === 0 ? (
+              <p style={{ color: '#6b705c', opacity: 0.7, fontSize: '0.85rem', marginBottom: '30px' }}>
+                No sizes available.
+              </p>
+            ) : isOneSize ? (
+              <div style={{
+                display: 'inline-block', padding: '10px 16px',
+                fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                background: '#6b705c', color: '#ffe8d6',
+                borderRadius: '2px', marginBottom: '30px',
+              }}>
+                One size
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '30px' }}>
+                {sizes.map((s) => {
+                  const active = selectedSize === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      className="size-chip"
+                      onClick={() => setSelectedSize(s)}
+                      style={{
+                        minWidth: '52px', padding: '10px 16px',
+                        fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                        border: active ? '1px solid #6b705c' : '1px solid rgba(107,112,92,0.28)',
+                        borderRadius: '2px',
+                        background: active ? '#6b705c' : 'transparent',
+                        color: active ? '#ffe8d6' : '#6b705c',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Height */}
+            <span style={{
+              fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase',
+              color: '#cb997e', marginBottom: '12px', display: 'block',
+            }}>
+              Height
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {unit === 'imperial' ? (
+                <>
+                  <input
+                    type="number"
+                    value={feet}
+                    placeholder="5"
+                    min={3} max={8}
+                    onChange={(e) => setFeet(e.target.value)}
+                    aria-label="Feet"
+                    style={heightInputStyle}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6b705c', opacity: 0.6 }}>ft</span>
+                  <input
+                    type="number"
+                    value={inches}
+                    placeholder="10"
+                    min={0} max={11}
+                    onChange={(e) => setInches(e.target.value)}
+                    aria-label="Inches"
+                    style={heightInputStyle}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6b705c', opacity: 0.6 }}>in</span>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    value={cm}
+                    placeholder="178"
+                    min={100} max={250}
+                    onChange={(e) => setCm(e.target.value)}
+                    aria-label="Centimeters"
+                    style={heightInputStyle}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6b705c', opacity: 0.6 }}>cm</span>
+                </>
+              )}
+              <div style={{
+                display: 'inline-flex', marginLeft: 'auto',
+                border: '1px solid rgba(107,112,92,0.28)',
+                borderRadius: '2px', overflow: 'hidden',
+              }}>
+                {(['imperial', 'metric'] as Unit[]).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setUnit(u)}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase',
+                      border: 'none',
+                      background: unit === u ? '#6b705c' : 'transparent',
+                      color: unit === u ? '#ffe8d6' : '#6b705c',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    {u === 'imperial' ? 'ft/in' : 'cm'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ paddingTop: '44px' }}>
+            <button
+              type="button"
+              className="btn-try-on"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              style={{
+                width: '100%', padding: '20px 28px',
+                fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                fontFamily: 'inherit',
+                background: canSubmit ? '#6b705c' : 'rgba(107,112,92,0.25)',
+                color: '#ffe8d6',
+                border: 'none', borderRadius: '2px',
+                cursor: canSubmit ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                transition: 'background 0.25s, transform 0.15s, box-shadow 0.25s',
+              }}
+            >
+              Try It On
+              <ArrowUpRight size={14} />
+            </button>
+            <p style={{
+              marginTop: '14px', fontSize: '10px',
+              color: '#6b705c', opacity: 0.4,
+              lineHeight: 1.65, letterSpacing: '0.02em', textAlign: 'center',
+            }}>
+              We generate one image for your session only.<br />Your photo never leaves this page.
+            </p>
+          </div>
+
         </div>
-      </section>
+      </main>
 
       <TryOnModal
         open={modalOpen}
@@ -822,78 +814,5 @@ export default function TryOnExperience({ itemId }: Props) {
         onRetry={handleSubmit}
       />
     </>
-  );
-}
-
-function Panel({
-  title,
-  eyebrow,
-  children,
-}: {
-  title: string;
-  eyebrow: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        padding: '28px',
-        borderRadius: '3px',
-        backgroundColor: 'rgba(221,190,169,0.22)',
-        border: '1px solid rgba(203,153,126,0.25)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <span
-        className="block text-xs uppercase mb-2"
-        style={{ color: '#cb997e', letterSpacing: '0.3em' }}
-      >
-        {eyebrow}
-      </span>
-      <h2
-        className="font-light mb-5"
-        style={{
-          fontFamily: "'Georgia', serif",
-          fontSize: '1.4rem',
-          color: '#6b705c',
-          lineHeight: 1.2,
-        }}
-      >
-        {title}
-      </h2>
-      {children}
-    </div>
-  );
-}
-
-function NumberField({
-  value,
-  onChange,
-  placeholder,
-  ...rest
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
-  return (
-    <input
-      type="number"
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: '70px',
-        padding: '10px 12px',
-        fontSize: '0.9rem',
-        backgroundColor: 'rgba(255,232,214,0.6)',
-        border: '1px solid rgba(107,112,92,0.3)',
-        borderRadius: '2px',
-        color: '#6b705c',
-        outline: 'none',
-      }}
-      {...rest}
-    />
   );
 }
