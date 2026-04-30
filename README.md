@@ -4,7 +4,7 @@
   <a href="https://devpost.com/software/WearHouse">
     <img src="WearHouse.png" alt="WearHouse" width="800">
   </a>
-  <p><i>Click the logo to view the project on Devpost</i></p>
+  <p><i>Click the image to view the project on Devpost</i></p>
 
 [![Next.js 16](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![React 19](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
