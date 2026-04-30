@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StyleOn – Color Season Analysis",
+  title: "Wearhouse – Color Season Analysis",
   description: "Real-time color season analysis powered by MediaPipe and Gemini",
 };
 

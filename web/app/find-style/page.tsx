@@ -3,7 +3,7 @@ import Footer from '../components/Footer';
 import ColorAnalysis from '../components/ColorAnalysis';
 
 export const metadata = {
-  title: 'Find Your Style — StyleOn',
+  title: 'Find Your Style — Wearhouse',
   description: 'Discover your color season through real-time face analysis.',
 };
 

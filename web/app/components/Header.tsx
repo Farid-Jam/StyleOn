@@ -16,6 +16,16 @@ export default function Header() {
         borderBottom: '1px solid rgba(203, 153, 126, 0.2)',
       }}
     >
+      <div className="flex items-center gap-2">
+        <Link
+          href="/"
+          className="text-2xl tracking-[0.3em] uppercase font-light"
+          style={{ color: '#6b705c', fontFamily: "'Georgia', serif", letterSpacing: '0.35em' }}
+        >
+          Wearhouse
+        </Link>
+      </div>
+
       <nav className="hidden md:flex items-center gap-8">
         {['Collections', 'Seasons', 'Styles', 'Sale'].map((item) => (
           <a
@@ -30,16 +40,6 @@ export default function Header() {
           </a>
         ))}
       </nav>
-
-      <div className="flex items-center gap-2">
-        <Link
-          href="/"
-          className="text-2xl tracking-[0.3em] uppercase font-light"
-          style={{ color: '#6b705c', fontFamily: "'Georgia', serif", letterSpacing: '0.35em' }}
-        >
-          StyleOn
-        </Link>
-      </div>
 
       <div className="hidden md:flex items-center gap-5">
         <button style={{ color: '#6b705c' }} className="hover:opacity-70 transition-opacity">

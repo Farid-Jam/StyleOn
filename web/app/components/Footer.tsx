@@ -37,7 +37,7 @@ export default function Footer() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-10 px-8 md:px-16 py-14">
         <div className="col-span-2 md:col-span-1">
           <div className="text-xl tracking-[0.35em] uppercase font-light mb-4" style={{ fontFamily: "'Georgia', serif", letterSpacing: '0.35em' }}>
-            StyleOn
+            Wearhouse
           </div>
           <p className="text-xs leading-relaxed mb-6" style={{ color: 'rgba(255,232,214,0.55)', lineHeight: '1.7' }}>
             A virtual atelier that matches curated fashion to the person wearing it.
@@ -86,7 +86,7 @@ export default function Footer() {
         className="flex flex-col md:flex-row items-center justify-between px-8 md:px-16 py-5 text-xs"
         style={{ borderTop: '1px solid rgba(255,232,214,0.1)', color: 'rgba(255,232,214,0.35)', letterSpacing: '0.1em' }}
       >
-        <span>&copy; 2026 StyleOn. All rights reserved.</span>
+        <span>&copy; 2026 Wearhouse. All rights reserved.</span>
         <div className="flex gap-6 mt-3 md:mt-0">
           <a href="#" className="hover:opacity-70 transition-opacity">Privacy Policy</a>
           <a href="#" className="hover:opacity-70 transition-opacity">Terms of Service</a>
