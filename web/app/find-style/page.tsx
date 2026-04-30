@@ -14,7 +14,7 @@ export default function FindStylePage() {
 
       <section
         className="relative overflow-hidden"
-        style={{ paddingTop: '140px', paddingBottom: '40px', backgroundColor: '#ffe8d6' }}
+        style={{ paddingTop: '140px', paddingBottom: '0px', backgroundColor: '#ffe8d6' }}
       >
         {/* Decorative background bar */}
         <div
@@ -57,7 +57,7 @@ export default function FindStylePage() {
           />
 
           <p
-            className="max-w-2xl mb-12"
+            className="max-w-2xl mb-6"
             style={{
               color: '#6b705c',
               opacity: 0.75,

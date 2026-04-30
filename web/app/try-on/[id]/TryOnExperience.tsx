@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowUpRight, Upload, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Camera, Upload, X } from 'lucide-react';
 import {
   fetchImageAsDataUrl,
   generateTryOn,
@@ -53,6 +53,10 @@ export default function TryOnExperience({ itemId }: Props) {
   const [fitText, setFitText] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [photoMode, setPhotoMode] = useState<'upload' | 'camera'>('upload');
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   // Load product from Snowflake.
   useEffect(() => {
@@ -110,6 +114,64 @@ export default function TryOnExperience({ itemId }: Props) {
       alive = false;
     };
   }, [personImage]);
+
+  // Start/stop camera stream based on photoMode
+  useEffect(() => {
+    if (photoMode !== 'camera') {
+      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+      return;
+    }
+    let alive = true;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } })
+      .then((stream) => {
+        if (!alive) { stream.getTracks().forEach(t => t.stop()); return; }
+        cameraStreamRef.current = stream;
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream;
+          cameraVideoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => {
+        if (alive) setPhotoMode('upload');
+      });
+    return () => {
+      alive = false;
+      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    };
+  }, [photoMode]);
+
+  function capturePhoto() {
+    const video = cameraVideoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d')!;
+    // Mirror to match what the user sees in the preview
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    setPersonImage(canvas.toDataURL('image/jpeg', 0.92));
+    setPhotoMode('upload');
+    setCountdown(null);
+  }
+
+  function startCountdown() {
+    setCountdown(3);
+    let n = 3;
+    const tick = setInterval(() => {
+      n -= 1;
+      if (n === 0) {
+        clearInterval(tick);
+        capturePhoto();
+      } else {
+        setCountdown(n);
+      }
+    }, 1000);
+  }
 
   const sizes = useMemo(() => parseSizes(product?.available_sizes), [product]);
   const isOneSize = sizes.length === 1 && sizes[0]?.toLowerCase() === 'one size';
@@ -269,108 +331,215 @@ export default function TryOnExperience({ itemId }: Props) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Column 1: person photo */}
             <Panel title="Your Photo" eyebrow="Step 1">
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  handlePersonFile(e.dataTransfer.files?.[0]);
-                }}
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: '3 / 4',
-                  borderRadius: '3px',
-                  border: personImage ? 'none' : '1px dashed rgba(107,112,92,0.4)',
-                  backgroundColor: personImage ? '#000' : 'rgba(221,190,169,0.25)',
-                  cursor: 'pointer',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'border-color 0.2s ease, background-color 0.2s ease',
-                }}
-              >
-                {personImage ? (
-                  <>
-                    <img
-                      src={personImage}
-                      alt="You"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                    />
+              {/* Mode tabs — only visible when no photo is selected */}
+              {!personImage && (
+                <div
+                  style={{
+                    display: 'flex',
+                    marginBottom: '14px',
+                    border: '1px solid rgba(107,112,92,0.3)',
+                    borderRadius: '2px',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {([
+                    { mode: 'upload', icon: <Upload size={12} />, label: 'Upload' },
+                    { mode: 'camera', icon: <Camera size={12} />, label: 'Take Photo' },
+                  ] as const).map(({ mode, icon, label }) => (
                     <button
+                      key={mode}
                       type="button"
-                      aria-label="Remove photo"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPersonImage(null);
-                      }}
+                      onClick={() => setPhotoMode(mode)}
                       style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '999px',
-                        backgroundColor: 'rgba(255,232,214,0.9)',
-                        color: '#6b705c',
-                        border: 'none',
+                        flex: 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '32px', color: '#6b705c' }}>
-                    <Upload size={28} style={{ margin: '0 auto 14px', opacity: 0.7 }} />
-                    <p
-                      style={{
-                        fontSize: '0.7rem',
-                        letterSpacing: '0.25em',
+                        gap: '6px',
+                        padding: '10px',
+                        fontSize: '0.65rem',
+                        letterSpacing: '0.2em',
                         textTransform: 'uppercase',
-                        marginBottom: '8px',
+                        border: 'none',
+                        backgroundColor: photoMode === mode ? '#6b705c' : 'transparent',
+                        color: photoMode === mode ? '#ffe8d6' : '#6b705c',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.18s ease, color 0.18s ease',
                       }}
                     >
-                      Upload a photo
-                    </p>
-                    <p
-                      style={{
-                        fontFamily: "'Georgia', serif",
-                        fontStyle: 'italic',
-                        fontSize: '0.85rem',
-                        opacity: 0.75,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Full-body, soft natural light works best.
-                    </p>
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload zone */}
+              {!personImage && photoMode === 'upload' && (
+                <>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handlePersonFile(e.dataTransfer.files?.[0]);
+                    }}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '3 / 4',
+                      borderRadius: '3px',
+                      border: '1px dashed rgba(107,112,92,0.4)',
+                      backgroundColor: 'rgba(221,190,169,0.25)',
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <div style={{ textAlign: 'center', padding: '32px', color: '#6b705c' }}>
+                      <Upload size={28} style={{ margin: '0 auto 14px', opacity: 0.7 }} />
+                      <p style={{ fontSize: '0.7rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Upload a photo
+                      </p>
+                      <p style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic', fontSize: '0.85rem', opacity: 0.75, lineHeight: 1.6 }}>
+                        Full-body, soft natural light works best.
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => handlePersonFile(e.target.files?.[0])}
-              />
-              {personImage && (
-                <p
-                  className="mt-3 text-xs"
-                  style={{ color: '#6b705c', opacity: 0.65, letterSpacing: '0.05em' }}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => handlePersonFile(e.target.files?.[0])}
+                  />
+                </>
+              )}
+
+              {/* Camera view */}
+              {!personImage && photoMode === 'camera' && (
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: '3 / 4',
+                    borderRadius: '3px',
+                    backgroundColor: '#000',
+                    overflow: 'hidden',
+                  }}
                 >
-                  {bodyMetrics
-                    ? `Pose detected · ${bodyMetrics.build} build`
-                    : 'Reading your proportions…'}
+                  <video
+                    ref={cameraVideoRef}
+                    playsInline
+                    muted
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                      transform: 'scaleX(-1)',
+                    }}
+                  />
+                  {/* Countdown overlay */}
+                  {countdown !== null && (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(0,0,0,0.25)',
+                    }}>
+                      <span style={{
+                        fontSize: '7rem',
+                        fontFamily: "'Georgia', serif",
+                        color: '#ffe8d6',
+                        fontWeight: 300,
+                        lineHeight: 1,
+                        textShadow: '0 2px 24px rgba(0,0,0,0.5)',
+                      }}>
+                        {countdown}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Shutter button */}
+                  <button
+                    type="button"
+                    onClick={startCountdown}
+                    disabled={countdown !== null}
+                    aria-label="Take photo"
+                    style={{
+                      position: 'absolute',
+                      bottom: '20px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '999px',
+                      backgroundColor: 'rgba(255,232,214,0.9)',
+                      border: '3px solid #6b705c',
+                      cursor: countdown !== null ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: countdown !== null ? 0.5 : 1,
+                      transition: 'opacity 0.2s ease, background-color 0.15s ease',
+                    }}
+                    onMouseEnter={e => { if (countdown === null) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ffe8d6'; }}
+                    onMouseLeave={e => { if (countdown === null) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,232,214,0.9)'; }}
+                  >
+                    <div style={{ width: '36px', height: '36px', borderRadius: '999px', backgroundColor: '#6b705c' }} />
+                  </button>
+                </div>
+              )}
+
+              {/* Captured / uploaded photo */}
+              {personImage && (
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: '3 / 4',
+                    borderRadius: '3px',
+                    backgroundColor: '#000',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <img
+                    src={personImage}
+                    alt="You"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove photo"
+                    onClick={() => setPersonImage(null)}
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '999px',
+                      backgroundColor: 'rgba(255,232,214,0.9)',
+                      color: '#6b705c',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {personImage && (
+                <p className="mt-3 text-xs" style={{ color: '#6b705c', opacity: 0.65, letterSpacing: '0.05em' }}>
+                  {bodyMetrics ? `Pose detected · ${bodyMetrics.build} build` : 'Reading your proportions…'}
                 </p>
               )}
             </Panel>

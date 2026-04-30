@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision';
-import { ArrowUpRight, MessageCircle, RefreshCw, Sparkles, X } from 'lucide-react';
+import { ArrowUpRight, Camera, MessageCircle, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
 import FaceCamera from './FaceCamera';
 import AvatarExplainer from './AvatarExplainer';
 import { extractColors, rgbToHex, type RGB } from '../lib/colorExtraction';
 import { ANALYSIS_STORAGE_KEY } from '../lib/colorMatching';
 import type { AnalysisResult } from '../lib/types';
+
+const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm`;
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 const INTRO_SCRIPT =
   "Welcome! I'm your color guide. Color analysis studies the natural pigments of your skin, eyes, and hair to find the season — Spring, Summer, Autumn, or Winter — that flatters you most. In a moment, our vision engine will read those tones from your camera. Once you press Analyze My Colors, I'll walk you through what your palette means and which shades to wear or skip.";
@@ -183,6 +187,12 @@ export default function ColorAnalysis() {
   const [avatarActive, setAvatarActive] = useState(false);
   const [avatarScript, setAvatarScript] = useState<string | null>(null);
 
+  const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProcessing, setUploadProcessing] = useState(false);
+  const uploadFileRef = useRef<HTMLInputElement>(null);
+
   const smoothRef = useRef<{ skin: RGB; eye: RGB; hair: RGB } | null>(null);
   const frameRef = useRef(0);
   const latestColorsRef = useRef<DisplayColors | null>(null);
@@ -201,6 +211,85 @@ export default function ColorAnalysis() {
   function handleCloseAvatar() {
     setAvatarActive(false);
     setAvatarScript(null);
+  }
+
+  async function handleImageFile(file: File) {
+    if (!file.type.startsWith('image/')) return;
+    setUploadError(null);
+    setUploadProcessing(true);
+    setColors(null);
+    setFrozenColors(null);
+
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setUploadedPhoto(dataUrl);
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = dataUrl;
+      });
+
+      // Draw to canvas for color pixel sampling
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+      ctx.drawImage(img, 0, 0);
+
+      // Run face landmark detection in IMAGE mode
+      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+      const landmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+        runningMode: 'IMAGE',
+        numFaces: 1,
+      });
+      const result = landmarker.detect(img);
+      landmarker.close();
+
+      if (!result.faceLandmarks.length) {
+        setUploadError('No face detected. Try a well-lit, forward-facing photo.');
+        return;
+      }
+
+      const raw = extractColors(result, canvas);
+      if (!raw) {
+        setUploadError('Could not sample colors — try a clearer photo.');
+        return;
+      }
+
+      const detected = {
+        skin: rgbToHex(raw.skin),
+        eye: rgbToHex(raw.eye),
+        hair: rgbToHex(raw.hair),
+      };
+      latestColorsRef.current = detected;
+      setColors(detected);
+    } catch {
+      setUploadError('Failed to process the photo. Please try another image.');
+    } finally {
+      setUploadProcessing(false);
+    }
+  }
+
+  function switchMode(mode: 'camera' | 'upload') {
+    setInputMode(mode);
+    setUploadedPhoto(null);
+    setUploadError(null);
+    setColors(null);
+    setFrozenColors(null);
+    setResult(null);
+    setError(null);
+    setPaused(false);
+    latestColorsRef.current = null;
+    smoothRef.current = null;
+    frameRef.current = 0;
   }
 
   const handleLandmarks = useCallback(
@@ -317,18 +406,159 @@ export default function ColorAnalysis() {
         </button>
       </div>
 
-      {/* Camera card */}
+      {/* Mode tabs */}
       <div
-        className="relative overflow-hidden"
         style={{
-          borderRadius: '4px',
-          border: '1px solid rgba(107,112,92,0.18)',
-          boxShadow: '0 12px 40px rgba(107,112,92,0.18)',
-          backgroundColor: '#0a0a0a',
+          display: 'flex',
+          border: '1px solid rgba(107,112,92,0.3)',
+          borderRadius: '2px',
+          overflow: 'hidden',
         }}
       >
-        <FaceCamera onLandmarks={handleLandmarks} paused={paused} />
+        {([
+          { mode: 'camera', icon: <Camera size={12} />, label: 'Live Camera' },
+          { mode: 'upload', icon: <Upload size={12} />, label: 'Upload Photo' },
+        ] as const).map(({ mode, icon, label }) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => switchMode(mode)}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              padding: '12px',
+              fontSize: '0.65rem',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              border: 'none',
+              backgroundColor: inputMode === mode ? '#6b705c' : 'rgba(255,232,214,0.6)',
+              color: inputMode === mode ? '#ffe8d6' : '#6b705c',
+              cursor: 'pointer',
+              transition: 'background-color 0.18s ease, color 0.18s ease',
+            }}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* Camera card */}
+      {inputMode === 'camera' && (
+        <div
+          className="relative overflow-hidden"
+          style={{
+            borderRadius: '4px',
+            border: '1px solid rgba(107,112,92,0.18)',
+            boxShadow: '0 12px 40px rgba(107,112,92,0.18)',
+            backgroundColor: '#0a0a0a',
+          }}
+        >
+          <FaceCamera onLandmarks={handleLandmarks} paused={paused} />
+        </div>
+      )}
+
+      {/* Upload card */}
+      {inputMode === 'upload' && (
+        <div
+          style={{
+            borderRadius: '4px',
+            border: '1px solid rgba(107,112,92,0.18)',
+            boxShadow: '0 12px 40px rgba(107,112,92,0.18)',
+            backgroundColor: 'rgba(255,232,214,0.5)',
+            overflow: 'hidden',
+          }}
+        >
+          {uploadedPhoto ? (
+            <div style={{ position: 'relative' }}>
+              <img
+                src={uploadedPhoto}
+                alt="Uploaded"
+                style={{ width: '100%', maxHeight: '480px', objectFit: 'cover', display: 'block' }}
+              />
+              <button
+                type="button"
+                onClick={() => { setUploadedPhoto(null); setColors(null); setFrozenColors(null); latestColorsRef.current = null; }}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '999px',
+                  backgroundColor: 'rgba(255,232,214,0.9)',
+                  color: '#6b705c',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={14} />
+              </button>
+              {uploadProcessing && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundColor: 'rgba(255,232,214,0.7)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    border: '2px solid rgba(107,112,92,0.2)',
+                    borderTopColor: '#6b705c',
+                    animation: 'spin 0.9s linear infinite',
+                  }} />
+                  <p style={{ color: '#6b705c', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+                    Reading your tones…
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              onClick={() => uploadFileRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); handleImageFile(e.dataTransfer.files?.[0]); }}
+              style={{
+                padding: '64px 32px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16px',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              <Upload size={32} style={{ color: '#a5a58d' }} />
+              <p style={{ fontSize: '0.7rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#6b705c' }}>
+                Upload a photo
+              </p>
+              <p style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic', fontSize: '0.9rem', color: '#6b705c', opacity: 0.7, lineHeight: 1.7 }}>
+                Clear, well-lit and forward-facing works best.
+              </p>
+              {uploadError && (
+                <p style={{ fontSize: '0.8rem', color: '#cb997e', marginTop: '4px' }}>{uploadError}</p>
+              )}
+            </div>
+          )}
+          <input
+            ref={uploadFileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''; }}
+          />
+        </div>
+      )}
 
       {/* Live color readout */}
       <div
@@ -353,7 +583,9 @@ export default function ColorAnalysis() {
             className="text-sm text-center"
             style={{ color: '#a5a58d', letterSpacing: '0.05em' }}
           >
-            Position your face in the camera to detect your natural palette&hellip;
+            {inputMode === 'camera'
+              ? 'Position your face in the camera to detect your natural palette…'
+              : 'Upload a photo to detect your natural palette…'}
           </p>
         )}
       </div>
