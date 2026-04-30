@@ -46,8 +46,8 @@ const featured = [
 
 export default function CollectionsSection() {
   return (
-    <section id="collections" style={{ backgroundColor: '#b7b7a4' }} className="py-24 px-8 md:px-16">
-      <div className="flex items-end justify-between mb-14">
+    <section id="collections" style={{ backgroundColor: '#b7b7a4' }} className="px-6 py-20 sm:px-8 md:px-16 md:py-24">
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-10 md:mb-14">
         <div>
           <span
             className="block text-xs tracking-[0.35em] uppercase mb-3"
@@ -77,7 +77,7 @@ export default function CollectionsSection() {
         <Link
           href={`/collections/${featured[0].category}`}
           className="md:col-span-2 relative overflow-hidden group cursor-pointer block"
-          style={{ height: '100%', minHeight: '520px', borderRadius: '3px' }}
+          style={{ height: '100%', minHeight: 'clamp(420px, 55svh, 560px)', borderRadius: '3px' }}
         >
           <img
             src={featured[0].image}
@@ -107,7 +107,7 @@ export default function CollectionsSection() {
               key={item.title}
               href={`/collections/${item.category}`}
               className="relative overflow-hidden group cursor-pointer flex-1 block"
-              style={{ minHeight: '248px', borderRadius: '3px' }}
+              style={{ minHeight: 'clamp(220px, 26svh, 272px)', borderRadius: '3px' }}
             >
               <img
                 src={item.image}
@@ -134,7 +134,7 @@ export default function CollectionsSection() {
             key={item.title}
             href={`/collections/${item.category}`}
             className="relative overflow-hidden group cursor-pointer block"
-            style={{ height: '280px', borderRadius: '3px' }}
+            style={{ height: 'clamp(240px, 30svh, 300px)', borderRadius: '3px' }}
           >
             <img
               src={item.image}
@@ -155,7 +155,7 @@ export default function CollectionsSection() {
         <Link
           href="/collections/all"
           className="flex flex-col justify-between p-8 cursor-pointer group transition-all duration-300 hover:bg-[#cb997e]"
-          style={{ height: '280px', borderRadius: '3px', backgroundColor: '#6b705c' }}
+          style={{ minHeight: 'clamp(240px, 30svh, 300px)', borderRadius: '3px', backgroundColor: '#6b705c' }}
         >
           <p
             className="font-light italic leading-snug"

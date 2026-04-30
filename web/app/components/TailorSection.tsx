@@ -26,14 +26,14 @@ export default function TailorSection() {
   ][step];
 
   return (
-    <section className="relative py-24 px-8 md:px-16 overflow-hidden" style={{ backgroundColor: '#ddbea9' }}>
+    <section className="relative overflow-hidden px-6 py-20 sm:px-8 md:px-16 md:py-24" style={{ backgroundColor: '#ddbea9' }}>
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
         <img
           src="https://www.insidehook.com/wp-content/uploads/2025/01/GettyImages-2194614108.jpg?fit=1200%2C800"
           alt=""
-          className="absolute right-0 top-0 h-full object-cover object-right"
+          className="absolute right-0 top-0 hidden h-full object-cover object-right sm:block"
           style={{
-            width: '45%',
+            width: 'clamp(38%, 45vw, 50%)',
             objectPosition: '65% center',
             filter: 'brightness(0.85) saturate(0.5)',
             opacity: 0.80,
@@ -41,7 +41,7 @@ export default function TailorSection() {
         />
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to right, #ddbea9 45%, transparent 75%, #ddbea9 100%)' }}
+          style={{ background: 'linear-gradient(to right, #ddbea9 45%, rgba(221,190,169,0.2) 75%, #ddbea9 100%)' }}
         />
       </div>
 
@@ -58,7 +58,7 @@ export default function TailorSection() {
           Answer three questions. We match you with pieces that fit your body, taste, and life.
         </p>
 
-        <div className="flex items-center gap-3 mb-10">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-4 mb-10">
           {['Body Type', 'Style', 'Occasion'].map((label, i) => (
             <div key={label} className="flex items-center gap-2">
               <button

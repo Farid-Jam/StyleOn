@@ -9,7 +9,7 @@ export default function Header() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5 transition-all duration-300"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-5 transition-all duration-300 sm:px-8"
       style={{
         backgroundColor: 'rgba(255, 232, 214, 0.92)',
         backdropFilter: 'blur(12px)',
@@ -20,7 +20,7 @@ export default function Header() {
         <Link
           href="/"
           className="text-2xl tracking-[0.3em] uppercase font-light"
-          style={{ color: '#6b705c', fontFamily: "'Georgia', serif", letterSpacing: '0.35em' }}
+          style={{ color: '#6b705c', fontFamily: "'Georgia', serif", letterSpacing: 'clamp(0.18em, 3vw, 0.35em)' }}
         >
           Wearhouse
         </Link>

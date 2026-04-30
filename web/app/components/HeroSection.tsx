@@ -68,6 +68,133 @@ export default function HeroSection() {
         }
 
         .hero-img-wrap { overflow: hidden; }
+
+        .hero-section {
+          min-height: 100svh;
+          background-color: #ddbea9;
+        }
+
+        .hero-image {
+          height: 110%;
+          width: clamp(54%, 63vw, 68%);
+          object-fit: cover;
+          object-position: 35% center;
+          filter: brightness(0.88) saturate(0.85);
+          will-change: transform;
+          transform-origin: center center;
+        }
+
+        .hero-gradient {
+          background: linear-gradient(to right, transparent 34%, #ddbea9 63%);
+        }
+
+        .hero-content {
+          position: relative;
+          z-index: 10;
+          min-height: 100svh;
+          width: min(46vw, 660px);
+          margin-left: auto;
+          margin-right: clamp(40px, 6.5vw, 116px);
+          padding: clamp(92px, 11svh, 132px) clamp(28px, 4vw, 64px) 84px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .hero-title {
+          font-size: clamp(3rem, min(7vw, 10.5svh), 7rem);
+          color: #6b705c;
+          font-family: 'Georgia', serif;
+          line-height: 1.05;
+        }
+
+        .hero-actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+
+        @media (min-width: 768px) and (max-aspect-ratio: 4 / 3) {
+          .hero-image {
+            width: 58%;
+            object-position: 42% center;
+          }
+          .hero-gradient {
+            background: linear-gradient(to right, transparent 26%, #ddbea9 58%);
+          }
+          .hero-content {
+            width: min(50vw, 620px);
+            margin-right: clamp(24px, 4vw, 72px);
+            padding-left: clamp(24px, 3vw, 48px);
+            padding-right: clamp(24px, 3vw, 48px);
+          }
+        }
+
+        @media (min-width: 768px) and (min-aspect-ratio: 17 / 10) {
+          .hero-image {
+            width: clamp(56%, 60vw, 64%);
+          }
+          .hero-content {
+            width: min(44vw, 640px);
+            margin-right: clamp(56px, 8vw, 140px);
+          }
+        }
+
+        @media (max-width: 767px) {
+          .hero-section {
+            min-height: 100svh;
+          }
+          .hero-image {
+            width: 100%;
+            height: 62%;
+            object-position: 38% top;
+          }
+          .hero-gradient {
+            background:
+              linear-gradient(to bottom, transparent 24%, rgba(221,190,169,0.76) 58%, #ddbea9 78%),
+              linear-gradient(to right, transparent 18%, #ddbea9 92%);
+          }
+          .hero-content {
+            min-height: 100svh;
+            width: 100%;
+            margin: 0;
+            justify-content: flex-end;
+            padding: 54svh 24px 96px;
+          }
+          .hero-title {
+            font-size: clamp(3rem, 17vw, 4.8rem);
+            line-height: 0.98;
+            margin-bottom: 18px;
+            text-shadow: 0 1px 24px rgba(221, 190, 169, 0.75);
+          }
+          .hero-actions {
+            gap: 10px;
+          }
+          .btn-primary,
+          .btn-secondary {
+            padding: 13px 18px;
+            font-size: 10px;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .hero-content {
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 92px;
+          }
+          .hero-actions {
+            align-items: stretch;
+            flex-direction: column;
+          }
+          .btn-primary,
+          .btn-secondary {
+            justify-content: center;
+            width: 100%;
+          }
+        }
+
         .hero-img-enter { animation: scaleIn 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .hero-eyebrow-enter { opacity: 0; animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; }
         .hero-line1-enter { opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards; }
@@ -130,29 +257,16 @@ export default function HeroSection() {
 
       <section
         ref={heroRef}
-        className="relative w-full overflow-hidden"
-        style={{ minHeight: '100vh', backgroundColor: '#ddbea9' }}
+        className="hero-section relative w-full overflow-hidden"
       >
         <div className="absolute inset-0 hero-img-wrap" style={{ zIndex: 0 }}>
           <img
             ref={imgRef}
             src="/ConHacksLandingPage.jpeg"
             alt="Model"
-            className={loaded ? 'hero-img-enter' : ''}
-            style={{
-              height: '110%',
-              width: '65%',
-              objectFit: 'cover',
-              objectPosition: '35% center',
-              filter: 'brightness(0.88) saturate(0.85)',
-              willChange: 'transform',
-              transformOrigin: 'center center',
-            }}
+            className={`hero-image ${loaded ? 'hero-img-enter' : ''}`}
           />
-          <div
-            className="absolute inset-0"
-            style={{ background: 'linear-gradient(to right, transparent 35%, #ddbea9 62%)' }}
-          />
+          <div className="hero-gradient absolute inset-0" />
         </div>
 
         <div
@@ -182,19 +296,8 @@ export default function HeroSection() {
           </div>
         </div>
 
-        <div
-          className="relative z-10 flex flex-col justify-center h-screen ml-auto px-12 md:px-16 mr-[-200px]"
-          style={{ width: '52%', paddingTop: '100px' }}
-        >
-          <h1
-            className="font-light leading-none mb-6"
-            style={{
-              fontSize: 'clamp(3rem, 7vw, 7rem)',
-              color: '#6b705c',
-              fontFamily: "'Georgia', serif",
-              lineHeight: '1.05',
-            }}
-          >
+        <div className="hero-content">
+          <h1 className="hero-title font-light leading-none mb-6">
             <span className={`block ${loaded ? 'hero-line1-enter' : 'opacity-0'}`}>Where</span>
             <span className={`block ${loaded ? 'hero-line2-enter' : 'opacity-0'}`}>
               <em style={{ color: '#cb997e', fontStyle: 'italic' }}>Style</em>
@@ -214,7 +317,7 @@ export default function HeroSection() {
             }}
           />
 
-          <div className="flex items-center gap-4">
+          <div className="hero-actions">
             <button
               className={`btn-primary ${loaded ? 'hero-btn1-enter' : 'opacity-0'}`}
               onClick={() => router.push('/find-style')}

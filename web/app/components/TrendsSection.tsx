@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 const seasons = [
   {
@@ -48,11 +48,12 @@ const seasons = [
 const N = seasons.length;
 const CARD_W = 340;
 const GAP = 20;
-const STEP = CARD_W + GAP;
 const COPIES = 6;
 const ITEMS = Array.from({ length: N * COPIES }, (_, i) => seasons[i % N]);
 
 export default function TrendsSection() {
+  const [cardWidth, setCardWidth] = useState(CARD_W);
+  const stepSize = cardWidth + GAP;
   const trackRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -64,14 +65,24 @@ export default function TrendsSection() {
   const lastX = useRef(0);
   const lastT = useRef(0);
   const lastCenter = useRef(-1);
+  const wheelSnapTimer = useRef<number | undefined>(undefined);
 
-  const getStartScroll = () => Math.floor(COPIES / 2) * N * STEP;
+  useEffect(() => {
+    const updateCardWidth = () => {
+      setCardWidth(Math.min(CARD_W, Math.max(280, window.innerWidth * 0.84)));
+    };
+    updateCardWidth();
+    window.addEventListener('resize', updateCardWidth);
+    return () => window.removeEventListener('resize', updateCardWidth);
+  }, []);
+
+  const getStartScroll = () => Math.floor(COPIES / 2) * N * stepSize;
 
   const applyStyles = (scrollLeft: number) => {
     const el = trackRef.current;
     if (!el) return;
 
-    const centerCardIndex = scrollLeft / STEP;
+    const centerCardIndex = scrollLeft / stepSize;
 
     ITEMS.forEach((_, i) => {
       const card = cardRefs.current[i];
@@ -128,7 +139,7 @@ export default function TrendsSection() {
   };
 
   const checkLoop = (el: HTMLDivElement) => {
-    const total = N * STEP;
+    const total = N * stepSize;
     if (el.scrollLeft < total) el.scrollLeft += total * 2;
     else if (el.scrollLeft > total * (COPIES - 2)) el.scrollLeft -= total * 2;
   };
@@ -137,8 +148,8 @@ export default function TrendsSection() {
     const el = trackRef.current;
     if (!el) return;
     const target = el.scrollLeft - momentumPx;
-    const nearest = Math.round(target / STEP);
-    const snapScroll = nearest * STEP;
+    const nearest = Math.round(target / stepSize);
+    const snapScroll = nearest * stepSize;
     const start = el.scrollLeft;
     const diff = snapScroll - start;
     const duration = 400;
@@ -163,8 +174,8 @@ export default function TrendsSection() {
     el.scrollLeft += e.deltaY * 0.7;
     checkLoop(el);
     applyStyles(el.scrollLeft);
-    clearTimeout((window as unknown as { _wsnap?: ReturnType<typeof setTimeout> })._wsnap);
-    (window as unknown as { _wsnap?: ReturnType<typeof setTimeout> })._wsnap = setTimeout(() => snapToNearest(0), 80);
+    if (wheelSnapTimer.current) window.clearTimeout(wheelSnapTimer.current);
+    wheelSnapTimer.current = window.setTimeout(() => snapToNearest(0), 80);
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -238,7 +249,9 @@ export default function TrendsSection() {
     el.scrollLeft = start;
     applyStyles(start);
     updateInfo(0);
-  }, []);
+    // Re-center when card step changes (responsive width).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepSize]);
 
   return (
     <>
@@ -247,15 +260,15 @@ export default function TrendsSection() {
           display: flex;
           gap: ${GAP}px;
           overflow: hidden;
-          padding: 60px calc(50vw - ${CARD_W / 2}px);
+          padding: 60px calc(50vw - ${cardWidth / 2}px);
           cursor: grab;
           user-select: none;
           -webkit-user-select: none;
         }
         .wc-card {
           flex-shrink: 0;
-          width: ${CARD_W}px;
-          height: 440px;
+          width: ${cardWidth}px;
+          height: clamp(380px, 48svh, 440px);
           border-radius: 14px;
           overflow: hidden;
           position: relative;
@@ -297,13 +310,23 @@ export default function TrendsSection() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .trends-enter { animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+        @media (max-width: 767px) {
+          .wc-track {
+            padding-top: 34px;
+            padding-bottom: 42px;
+          }
+          .wc-inner {
+            padding: 20px;
+          }
+        }
       `}</style>
 
       <section
         className="trends-enter"
-        style={{ backgroundColor: '#ffe8d6', padding: '80px 0', overflow: 'hidden' }}
+        style={{ backgroundColor: '#ffe8d6', padding: 'clamp(64px, 8svh, 88px) 0', overflow: 'hidden' }}
       >
-        <div className="flex items-end justify-between px-16 mb-4">
+        <div className="flex flex-col gap-5 px-6 sm:px-8 md:flex-row md:items-end md:justify-between md:px-16 mb-4">
           <div>
             <span className="block text-xs uppercase mb-3" style={{ color: '#cb997e', letterSpacing: '0.3em' }}>
               Seasonal Curation
@@ -351,7 +374,7 @@ export default function TrendsSection() {
 
         <div
           ref={infoRef}
-          className="px-16 mt-4 pt-10"
+          className="px-6 sm:px-8 md:px-16 mt-4 pt-8 md:pt-10"
           style={{ borderTop: '1px solid rgba(107,112,92,0.15)', opacity: 0 }}
         />
       </section>
