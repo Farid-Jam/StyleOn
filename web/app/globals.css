@@ -21,6 +21,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Hide the Next.js dev tools floating indicator (lives inside <nextjs-portal>'s
+   shadow root, which we can't reach from outside CSS — so hide the host itself).
+   Trade-off: the runtime error overlay also lives in the same portal, so errors
+   will only appear in the browser console, not as a popup. */
+nextjs-portal { display: none !important; }
+
 html { scroll-behavior: smooth; }
 
 body {

@@ -1,13 +1,23 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision';
-import { ArrowUpRight, RefreshCw, Sparkles, X } from 'lucide-react';
+import { ArrowUpRight, MessageCircle, RefreshCw, Sparkles, X } from 'lucide-react';
 import FaceCamera from './FaceCamera';
+import AvatarExplainer from './AvatarExplainer';
 import { extractColors, rgbToHex, type RGB } from '../lib/colorExtraction';
 import { ANALYSIS_STORAGE_KEY } from '../lib/colorMatching';
 import type { AnalysisResult } from '../lib/types';
+
+const INTRO_SCRIPT =
+  "Welcome! I'm your color guide. Color analysis studies the natural pigments of your skin, eyes, and hair to find the season — Spring, Summer, Autumn, or Winter — that flatters you most. In a moment, our vision engine will read those tones from your camera. Once you press Analyze My Colors, I'll walk you through what your palette means and which shades to wear or skip.";
+
+function buildResultScript(r: AnalysisResult): string {
+  const best = r.best_colors.slice(0, 3).join(', ');
+  const avoid = r.avoid_colors.slice(0, 2).join(', ');
+  return `Wonderful — your season is ${r.season}. ${r.description} Your undertone reads as ${r.undertone}, with ${r.contrast.toLowerCase()} contrast, and ${r.metal} jewelry will sit best against your skin. Lean into shades like ${best}, and ease away from tones such as ${avoid}, which tend to wash out your natural palette.`;
+}
 
 interface DisplayColors { skin: string; eye: string; hair: string }
 
@@ -170,10 +180,28 @@ export default function ColorAnalysis() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frozenColors, setFrozenColors] = useState<DisplayColors | null>(null);
+  const [avatarActive, setAvatarActive] = useState(false);
+  const [avatarScript, setAvatarScript] = useState<string | null>(null);
 
   const smoothRef = useRef<{ skin: RGB; eye: RGB; hair: RGB } | null>(null);
   const frameRef = useRef(0);
   const latestColorsRef = useRef<DisplayColors | null>(null);
+
+  // Once activated, narrate the analysis result whenever a new one is generated.
+  useEffect(() => {
+    if (!avatarActive || !result) return;
+    setAvatarScript(buildResultScript(result));
+  }, [avatarActive, result]);
+
+  function handleExplain() {
+    setAvatarActive(true);
+    setAvatarScript(result ? buildResultScript(result) : INTRO_SCRIPT);
+  }
+
+  function handleCloseAvatar() {
+    setAvatarActive(false);
+    setAvatarScript(null);
+  }
 
   const handleLandmarks = useCallback(
     (res: FaceLandmarkerResult, offscreen: HTMLCanvasElement) => {
@@ -258,6 +286,37 @@ export default function ColorAnalysis() {
 
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col gap-8">
+      {/* Explain CTA */}
+      <div className="flex items-center justify-end">
+        <button
+          onClick={handleExplain}
+          disabled={avatarActive}
+          className="flex items-center gap-2 px-4 py-2 text-[10px] uppercase transition-all duration-200"
+          style={{
+            border: '1px solid rgba(107,112,92,0.35)',
+            color: avatarActive ? '#a5a58d' : '#6b705c',
+            backgroundColor: avatarActive ? 'transparent' : 'rgba(255,232,214,0.7)',
+            borderRadius: '2px',
+            letterSpacing: '0.25em',
+            cursor: avatarActive ? 'default' : 'pointer',
+            opacity: avatarActive ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (avatarActive) return;
+            (e.currentTarget as HTMLButtonElement).style.borderColor = '#cb997e';
+            (e.currentTarget as HTMLButtonElement).style.color = '#cb997e';
+          }}
+          onMouseLeave={(e) => {
+            if (avatarActive) return;
+            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(107,112,92,0.35)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#6b705c';
+          }}
+        >
+          <MessageCircle size={12} />
+          {avatarActive ? 'Guide Active' : 'Explain'}
+        </button>
+      </div>
+
       {/* Camera card */}
       <div
         className="relative overflow-hidden"
@@ -521,6 +580,12 @@ export default function ColorAnalysis() {
           </div>
         </div>
       )}
+
+      <AvatarExplainer
+        active={avatarActive}
+        script={avatarScript}
+        onClose={handleCloseAvatar}
+      />
     </div>
   );
 }
