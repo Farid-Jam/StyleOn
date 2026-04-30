@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ArrowUpRight, Check } from 'lucide-react';
 
 const bodyTypes = ['Slim', 'Athletic', 'Regular', 'Plus'];
-const stylePrefs = ['Minimal', 'Classic', 'Casual', 'Editorial', 'Formal', 'Streetwear'];
+const stylePrefs = ['Minimal', 'Classic', 'Casual', 'Formal', 'Streetwear'];
 const occasions = ['Everyday', 'Work', 'Evening', 'Outdoor', 'Formal Events'];
 
 export default function TailorSection() {

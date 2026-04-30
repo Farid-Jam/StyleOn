@@ -94,7 +94,7 @@ export default function HeroSection() {
           min-height: 100svh;
           width: min(46vw, 660px);
           margin-left: auto;
-          margin-right: clamp(40px, 6.5vw, 116px);
+          margin-right: clamp(16px, 2vw, 48px);
           padding: clamp(92px, 11svh, 132px) clamp(28px, 4vw, 64px) 84px;
           display: flex;
           flex-direction: column;
@@ -137,7 +137,7 @@ export default function HeroSection() {
           }
           .hero-content {
             width: min(44vw, 640px);
-            margin-right: clamp(56px, 8vw, 140px);
+            margin-right: clamp(16px, 2.5vw, 56px);
           }
         }
 
