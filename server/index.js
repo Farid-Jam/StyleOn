@@ -90,13 +90,18 @@ app.get('/api/products', async (req, res) => {
       binds.push(term, term, term);
     }
 
+    const requested = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requested) && requested > 0
+      ? Math.min(requested, 2000)
+      : 100;
+
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await query(
       `SELECT id, name, brand, category, subcategory, gender_fit,
               colors, season_palette, aesthetic_tags, available_sizes,
               material, price, currency, image_url, try_on_ready_image_url,
               product_url, source, description, in_stock
-       FROM products ${where} ORDER BY category, name LIMIT 100`,
+       FROM products ${where} ORDER BY category, name LIMIT ${limit}`,
       binds,
     );
     res.json(lowerKeys(rows));

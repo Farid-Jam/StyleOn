@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+data/kaggle-fashion/
+data/*.csv
+app/static/product-images/*.jpg

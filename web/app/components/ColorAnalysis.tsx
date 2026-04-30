@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision';
-import { ArrowUpRight, RefreshCw, X } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Sparkles, X } from 'lucide-react';
 import FaceCamera from './FaceCamera';
 import { extractColors, rgbToHex, type RGB } from '../lib/colorExtraction';
+import { ANALYSIS_STORAGE_KEY } from '../lib/colorMatching';
 import type { AnalysisResult } from '../lib/types';
 
 interface DisplayColors { skin: string; eye: string; hair: string }
@@ -228,6 +230,11 @@ export default function ColorAnalysis() {
 
       const data: AnalysisResult = await res.json();
       setResult(data);
+      try {
+        sessionStorage.setItem(ANALYSIS_STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        /* private mode / storage unavailable — non-fatal */
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -240,6 +247,11 @@ export default function ColorAnalysis() {
     setResult(null);
     setError(null);
     setFrozenColors(null);
+    try {
+      sessionStorage.removeItem(ANALYSIS_STORAGE_KEY);
+    } catch {
+      /* non-fatal */
+    }
   }
 
   const showDashboard = analyzing || !!result || !!error;
@@ -455,6 +467,31 @@ export default function ColorAnalysis() {
               loading={analyzing}
               indexOffset={9}
             />
+
+            {!analyzing && result && (
+              <Link
+                href="/collections/personalized"
+                className="flex items-center justify-center gap-2 w-full py-5 text-xs uppercase transition-all duration-300"
+                style={{
+                  backgroundColor: '#6b705c',
+                  color: '#ffe8d6',
+                  borderRadius: '2px',
+                  letterSpacing: '0.25em',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#cb997e';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#6b705c';
+                }}
+              >
+                <Sparkles className="w-4 h-4" />
+                Shop Your Palette
+                <ArrowUpRight size={14} />
+              </Link>
+            )}
 
             {!analyzing && (
               <button

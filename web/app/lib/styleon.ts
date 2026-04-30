@@ -56,9 +56,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export function getProducts(category?: string): Promise<Product[]> {
-  const params = category ? `?category=${encodeURIComponent(category)}` : '';
-  return fetchJson<Product[]>(`/api/products${params}`);
+export function getProducts(category?: string, limit?: number): Promise<Product[]> {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  return fetchJson<Product[]>(`/api/products${query ? `?${query}` : ''}`);
 }
 
 export function getProduct(id: string): Promise<Product> {
