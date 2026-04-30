@@ -31,9 +31,9 @@ function isValidHex(s: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
+    return Response.json({ error: 'GOOGLE_API_KEY (or GEMINI_API_KEY) not configured' }, { status: 500 });
   }
 
   let body: Partial<RequestBody>;
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel(
     {
-      model: 'gemini-2.5-flash-lite',
+      model: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash-lite',
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema,

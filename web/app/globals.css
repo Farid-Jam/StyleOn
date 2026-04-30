@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --light-bronze: #cb997e;
+  --desert-sand: #ddbea9;
+  --powder-petal: #ffe8d6;
+  --ash-grey: #b7b7a4;
+  --dry-sage: #a5a58d;
+  --dusty-olive: #6b705c;
+
+  --background: var(--powder-petal);
+  --foreground: var(--dusty-olive);
 }
 
 @theme inline {
@@ -12,18 +19,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', 'Georgia', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
 }
+
+h1, h2, h3, h4 {
+  font-family: 'Cormorant Garamond', 'Georgia', serif;
+  font-weight: 300;
+}
+
+::-webkit-scrollbar { height: 4px; width: 4px; }
+::-webkit-scrollbar-track { background: var(--powder-petal); }
+::-webkit-scrollbar-thumb { background: var(--ash-grey); border-radius: 2px; }
+
+::selection { background: var(--light-bronze); color: var(--powder-petal); }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(16px); }
@@ -51,7 +68,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #ffffff08 25%, #ffffff14 50%, #ffffff08 75%);
+  background: linear-gradient(90deg, rgba(107,112,92,0.06) 25%, rgba(107,112,92,0.16) 50%, rgba(107,112,92,0.06) 75%);
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
 }
