@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StyleOn — Color Analysis</title>
+<style>
+  :root {
+    --bg: #0C0C10;
+    --surface: #141418;
+    --surface2: #1C1C22;
+    --border: #2A2A32;
+    --gold: #C9A96E;
+    --gold-light: #E2C48A;
+    --text: #F2F0ED;
+    --text-muted: #8A8890;
+    --text-dim: #5A5862;
+    --green: #6FCF97;
+    --red: #EB5757;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--gold);
+  }
+
+  .logo span { color: var(--text-muted); font-weight: 300; }
+
+  header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── UPLOAD ── */
+  .upload-section {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .upload-section h1 {
+    font-size: clamp(26px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  .upload-section h1 em {
+    font-style: normal;
+    color: var(--gold);
+  }
+
+  .upload-section > p {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin-bottom: 36px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 56px 32px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--gold);
+    background: rgba(201, 169, 110, 0.04);
+  }
+
+  .drop-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    color: var(--gold);
+  }
+
+  .drop-zone h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .drop-zone p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  #file-input { display: none; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 11px 28px;
+    background: var(--gold);
+    color: #0C0C10;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    border: none;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+
+  .btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+
+  /* ── PREVIEW ── */
+  .preview-container {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .preview-img {
+    width: 200px;
+    height: 200px;
+    object-fit: cover;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+  }
+
+  .preview-name {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .analyze-btn {
+    padding: 13px 40px;
+    font-size: 15px;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 48px 0;
+  }
+
+  .spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .loading-step {
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: color 0.3s;
+  }
+
+  .loading-step.active { color: var(--gold); font-weight: 600; }
+  .loading-step.done { color: var(--green); }
+
+  /* ── ERROR ── */
+  .error-box {
+    display: none;
+    background: rgba(235, 87, 87, 0.08);
+    border: 1px solid rgba(235, 87, 87, 0.25);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: var(--red);
+    font-size: 14px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  /* ── RESULTS ── */
+  .results {
+    display: none;
+    flex-direction: column;
+    gap: 32px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── HERO CARD ── */
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .hero-photo {
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .hero-photo img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+  }
+
+  .detected-swatches {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .swatch-mini {
+    text-align: center;
+  }
+
+  .swatch-mini .dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    margin: 0 auto 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .swatch-mini span {
+    font-size: 9px;
+    color: var(--text-dim);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-info { flex: 1; min-width: 200px; }
+
+  .season-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 100px;
+    background: rgba(201, 169, 110, 0.12);
+    border: 1px solid rgba(201, 169, 110, 0.3);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .hero-season {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  .hero-desc {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .tag {
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .tag-warm { background: rgba(255, 165, 50, 0.12); color: #FFA532; border: 1px solid rgba(255,165,50,0.2); }
+  .tag-cool { background: rgba(100, 160, 255, 0.12); color: #64A0FF; border: 1px solid rgba(100,160,255,0.2); }
+  .tag-neutral { background: rgba(160, 140, 120, 0.12); color: #A08C78; border: 1px solid rgba(160,140,120,0.2); }
+  .tag-contrast { background: rgba(201, 169, 110, 0.08); color: var(--gold); border: 1px solid rgba(201,169,110,0.2); }
+
+  .hero-reasoning {
+    font-size: 13px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--gold);
+    padding-left: 12px;
+    line-height: 1.7;
+  }
+
+  /* ── PALETTE CARD ── */
+  .palette-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+  }
+
+  .palette-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .swatch .color-box {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: transform 0.15s;
+  }
+
+  .swatch:hover .color-box { transform: scale(1.08); }
+
+  .swatch .hex {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+
+  /* ── GRID ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .grid-3 { grid-template-columns: 1fr; } }
+
+  /* ── LIST CARD ── */
+  .list-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+
+  .color-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .color-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .color-list li::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .color-list.avoid li::before { background: var(--red); }
+  .color-list.less li::before { background: var(--text-dim); }
+  .color-list.neutral li::before { background: var(--text-muted); }
+  .color-list.hair li::before { background: #C9A96E; }
+
+  /* ── MAKEUP CARD ── */
+  .makeup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+
+  .makeup-item {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+  }
+
+  .makeup-item .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .makeup-item .value {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .makeup-tip {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--gold);
+    padding-left: 12px;
+    line-height: 1.7;
+  }
+
+  /* ── ACCESSORIES CARD ── */
+  .acc-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 4px;
+  }
+
+  .acc-item {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+
+  .acc-item .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .acc-item .value { font-size: 14px; color: var(--text); line-height: 1.6; }
+
+  /* ── METAL CARD ── */
+  .metal-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  .metal-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+
+  .metal-name {
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .metal-reason { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  /* ── RESET BTN ── */
+  .reset-row {
+    text-align: center;
+    padding-top: 8px;
+  }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 10px 28px;
+    border-radius: 100px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .reset-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ── TOOLTIP ── */
+  .copied-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: #0C0C10;
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 999;
+  }
+
+  .copied-toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Style<span>On</span></div>
+  <p>AI-Powered Seasonal Color Analysis</p>
+</header>
+
+<main>
+  <!-- UPLOAD SECTION -->
+  <div class="upload-section" id="upload-section">
+    <h1>Discover Your <em>Color Season</em></h1>
+    <p>Upload a clear, well-lit frontal photo to receive your personalized color analysis.</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <svg class="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="24" cy="24" r="20" stroke-dasharray="4 4"/>
+        <path d="M24 15v12M18 21l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 33h16" stroke-linecap="round"/>
+      </svg>
+      <h2>Drop your photo here</h2>
+      <p>or click to browse — JPEG, PNG, WebP · Max 15 MB</p>
+      <input type="file" id="file-input" accept="image/*" />
+      <button class="btn" onclick="document.getElementById('file-input').click()">
+        Choose Photo
+      </button>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-container" id="preview-container">
+      <img id="preview-img" class="preview-img" src="" alt="Preview" />
+      <p class="preview-name" id="preview-name"></p>
+      <button class="btn analyze-btn" id="analyze-btn">
+        ✦ Analyze My Colors
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-steps">
+        <div class="loading-step" id="step-1">Detecting face & extracting features</div>
+        <div class="loading-step" id="step-2">Analyzing skin tone, eyes & hair</div>
+        <div class="loading-step" id="step-3">Determining your color season</div>
+        <div class="loading-step" id="step-4">Generating style recommendations</div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" id="results">
+
+    <!-- Hero -->
+    <div class="hero-card" id="hero-card">
+      <div class="hero-photo">
+        <img id="result-photo" src="" alt="Your photo" />
+        <div class="detected-swatches">
+          <div class="swatch-mini">
+            <div class="dot" id="skin-dot"></div>
+            <span>Skin</span>
+          </div>
+          <div class="swatch-mini">
+            <div class="dot" id="eye-dot"></div>
+            <span>Eyes</span>
+          </div>
+          <div class="swatch-mini">
+            <div class="dot" id="hair-dot"></div>
+            <span>Hair</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-info">
+        <div class="season-badge">Color Season</div>
+        <div class="hero-season" id="hero-season"></div>
+        <div class="hero-desc" id="hero-desc"></div>
+        <div class="hero-tags" id="hero-tags"></div>
+        <div class="hero-reasoning" id="hero-reasoning"></div>
+      </div>
+    </div>
+
+    <!-- Best Palette -->
+    <div class="palette-card">
+      <div class="card-title">✦ Your Best Palette</div>
+      <div class="palette-swatches" id="palette-swatches"></div>
+    </div>
+
+    <!-- Colors grid -->
+    <div class="grid-2">
+      <div class="list-card">
+        <div class="card-title">Best Colors</div>
+        <ul class="color-list" id="best-colors"></ul>
+      </div>
+      <div class="list-card">
+        <div class="card-title">Colors to Avoid</div>
+        <ul class="color-list avoid" id="avoid-colors"></ul>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="list-card">
+        <div class="card-title">Less Flattering Colors</div>
+        <ul class="color-list less" id="less-colors"></ul>
+      </div>
+      <div class="list-card">
+        <div class="card-title">Best Neutrals</div>
+        <ul class="color-list neutral" id="neutral-colors"></ul>
+      </div>
+    </div>
+
+    <!-- Hair & Metal -->
+    <div class="grid-2">
+      <div class="list-card">
+        <div class="card-title">Best Hair Colors</div>
+        <ul class="color-list hair" id="hair-colors"></ul>
+      </div>
+      <div class="list-card">
+        <div class="card-title">Best Metal Type</div>
+        <div class="metal-row">
+          <div class="metal-icon" id="metal-icon"></div>
+          <div class="metal-name" id="metal-name"></div>
+        </div>
+        <div class="metal-reason" id="metal-reason"></div>
+      </div>
+    </div>
+
+    <!-- Makeup -->
+    <div class="list-card">
+      <div class="card-title">Makeup Recommendations</div>
+      <div class="makeup-grid" id="makeup-grid"></div>
+      <div class="makeup-tip" id="makeup-tip"></div>
+    </div>
+
+    <!-- Accessories -->
+    <div class="list-card">
+      <div class="card-title">Accessories & Styling</div>
+      <div class="acc-grid" id="acc-grid"></div>
+    </div>
+
+    <!-- Reset -->
+    <div class="reset-row">
+      <button class="reset-btn" id="reset-btn">← Analyze Another Photo</button>
+    </div>
+
+  </div><!-- /results -->
+</main>
+
+<div class="copied-toast" id="toast">Hex copied!</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let selectedFile = null;
+let previewURL = null;
+
+// ── DRAG & DROP ──
+const dropZone = $('drop-zone');
+['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+dropZone.addEventListener('drop', ev => {
+  const f = ev.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) setFile(f);
+});
+
+$('file-input').addEventListener('change', ev => {
+  if (ev.target.files[0]) setFile(ev.target.files[0]);
+});
+
+function setFile(file) {
+  selectedFile = file;
+  if (previewURL) URL.revokeObjectURL(previewURL);
+  previewURL = URL.createObjectURL(file);
+  $('preview-img').src = previewURL;
+  $('preview-name').textContent = file.name;
+  dropZone.style.display = 'none';
+  $('preview-container').style.display = 'flex';
+  $('error-box').style.display = 'none';
+}
+
+// ── ANALYZE ──
+$('analyze-btn').addEventListener('click', runAnalysis);
+
+async function runAnalysis() {
+  if (!selectedFile) return;
+
+  $('preview-container').style.display = 'none';
+  $('loading').style.display = 'flex';
+  $('error-box').style.display = 'none';
+
+  // Animated steps
+  const steps = ['step-1','step-2','step-3','step-4'];
+  let si = 0;
+  function advanceStep() {
+    if (si > 0) $(`step-${si}`).classList.replace('active','done');
+    if (si < steps.length) { $(`step-${si+1}`).classList.add('active'); si++; }
+  }
+  advanceStep();
+  const stepTimer = setInterval(advanceStep, 2200);
+
+  try {
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    const resp = await fetch('/analyze', { method: 'POST', body: fd });
+    clearInterval(stepTimer);
+    steps.forEach(s => { $(`${s}`).classList.remove('active','done'); });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    $('loading').style.display = 'none';
+    renderResults(data, previewURL);
+
+  } catch (e) {
+    clearInterval(stepTimer);
+    steps.forEach(s => { $(`${s}`).classList.remove('active','done'); });
+    $('loading').style.display = 'none';
+    $('error-box').textContent = `⚠ ${e.message}`;
+    $('error-box').style.display = 'block';
+    $('preview-container').style.display = 'flex';
+  }
+}
+
+// ── RENDER ──
+function renderResults(data, photoURL) {
+  const cv = data.cv_analysis;
+  const st = data.style_analysis;
+
+  // Photo + detected swatches
+  $('result-photo').src = photoURL;
+  $('skin-dot').style.background = cv.skin_tone_hex || '#888';
+  $('eye-dot').style.background = cv.eye_color_hex || '#888';
+  $('hair-dot').style.background = cv.hair_color_hex || '#5A3E28';
+
+  // Season
+  $('hero-season').textContent = st.season || '—';
+  $('hero-desc').textContent = st.season_description || '';
+  $('hero-reasoning').textContent = st.reasoning || '';
+
+  // Tags
+  const tags = $('hero-tags');
+  tags.innerHTML = '';
+  const undertone = cv.skin_undertone;
+  const cls = undertone === 'warm' ? 'tag-warm' : undertone === 'cool' ? 'tag-cool' : 'tag-neutral';
+  tags.innerHTML += `<span class="tag ${cls}">${capitalize(undertone)} Undertone</span>`;
+  tags.innerHTML += `<span class="tag tag-contrast">${capitalize(cv.contrast)} Contrast</span>`;
+  tags.innerHTML += `<span class="tag tag-neutral">${capitalize(cv.skin_depth)}</span>`;
+  tags.innerHTML += `<span class="tag tag-neutral">${cv.eye_color} eyes</span>`;
+  if (cv.hair_color !== 'not detected') tags.innerHTML += `<span class="tag tag-neutral">${cv.hair_color} hair</span>`;
+
+  // Palette
+  const palEl = $('palette-swatches');
+  palEl.innerHTML = '';
+  (st.best_palette || []).forEach(hex => {
+    palEl.innerHTML += `
+      <div class="swatch" onclick="copyHex('${hex}')">
+        <div class="color-box" style="background:${hex}"></div>
+        <span class="hex">${hex}</span>
+      </div>`;
+  });
+
+  // Lists
+  fillList('best-colors', st.best_colors);
+  fillList('avoid-colors', st.colors_to_avoid);
+  fillList('less-colors', st.less_flattering_colors);
+  fillList('neutral-colors', st.best_neutrals);
+  fillList('hair-colors', st.best_hair_colors);
+
+  // Metal
+  const metalMap = {
+    'gold': { emoji: '🥇', bg: 'rgba(212,175,55,0.15)' },
+    'silver': { emoji: '🥈', bg: 'rgba(192,192,192,0.15)' },
+    'rose gold': { emoji: '🌸', bg: 'rgba(200,130,110,0.15)' },
+    'mixed metals': { emoji: '✨', bg: 'rgba(201,169,110,0.12)' },
+  };
+  const metalKey = (st.metal_type || 'gold').toLowerCase();
+  const metalInfo = metalMap[metalKey] || { emoji: '💫', bg: 'rgba(201,169,110,0.12)' };
+  $('metal-icon').style.background = metalInfo.bg;
+  $('metal-icon').textContent = metalInfo.emoji;
+  $('metal-name').textContent = st.metal_type || 'Gold';
+  $('metal-reason').textContent = st.metal_reasoning || '';
+
+  // Makeup
+  const mk = st.makeup || {};
+  const makeupFields = [
+    { label: 'Foundation', value: mk.foundation_undertone },
+    { label: 'Lips', value: Array.isArray(mk.lips) ? mk.lips.join(', ') : mk.lips },
+    { label: 'Eyes / Shadow', value: Array.isArray(mk.eyes) ? mk.eyes.join(', ') : mk.eyes },
+    { label: 'Blush', value: mk.blush },
+    { label: 'Eyeliner', value: mk.eyeliner },
+  ];
+  $('makeup-grid').innerHTML = makeupFields.map(f => `
+    <div class="makeup-item">
+      <div class="label">${f.label}</div>
+      <div class="value">${f.value || '—'}</div>
+    </div>`).join('');
+  $('makeup-tip').textContent = mk.overall_tip || '';
+
+  // Accessories
+  const acc = st.accessories || {};
+  const accFields = [
+    { label: 'General', value: acc.general },
+    { label: 'Jewelry', value: acc.jewelry },
+    { label: 'Bags & Shoes', value: acc.bags_shoes },
+  ];
+  $('acc-grid').innerHTML = accFields.filter(f => f.value).map(f => `
+    <div class="acc-item">
+      <div class="label">${f.label}</div>
+      <div class="value">${f.value}</div>
+    </div>`).join('');
+
+  // Show results
+  $('upload-section').style.display = 'none';
+  const resultsEl = $('results');
+  resultsEl.style.display = 'flex';
+}
+
+function fillList(elId, items) {
+  const el = $(elId);
+  if (!el || !Array.isArray(items)) return;
+  el.innerHTML = items.map(c => `<li>${c}</li>`).join('');
+}
+
+function capitalize(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function copyHex(hex) {
+  navigator.clipboard.writeText(hex).then(() => {
+    const toast = $('toast');
+    toast.textContent = `${hex} copied!`;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1800);
+  });
+}
+
+// ── RESET ──
+$('reset-btn').addEventListener('click', () => {
+  selectedFile = null;
+  if (previewURL) URL.revokeObjectURL(previewURL);
+  previewURL = null;
+  $('file-input').value = '';
+  $('results').style.display = 'none';
+  $('upload-section').style.display = 'block';
+  dropZone.style.display = 'block';
+  $('preview-container').style.display = 'none';
+  $('error-box').style.display = 'none';
+});
+</script>
+</body>
+</html>

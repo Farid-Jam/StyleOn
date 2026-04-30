@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+mediapipe
+opencv-python-headless
+numpy
+scikit-learn
+google-genai
+python-dotenv
+Pillow
