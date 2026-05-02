@@ -59,13 +59,13 @@ export default function TrendsSection() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const snapRaf = useRef<number>(0);
   const isDragging = useRef(false);
+  const didDrag = useRef(false);
   const startX = useRef(0);
   const scrollStart = useRef(0);
   const vel = useRef(0);
   const lastX = useRef(0);
   const lastT = useRef(0);
   const lastCenter = useRef(-1);
-  const wheelSnapTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const updateCardWidth = () => {
@@ -166,16 +166,26 @@ export default function TrendsSection() {
     snapRaf.current = requestAnimationFrame(go);
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+
+  const snapToCard = (i: number) => {
     const el = trackRef.current;
     if (!el) return;
+    const snapScroll = i * stepSize;
+    const start = el.scrollLeft;
+    const diff = snapScroll - start;
+    if (Math.abs(diff) < 1) return;
+    const duration = 400;
+    const t0 = performance.now();
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
     if (snapRaf.current) cancelAnimationFrame(snapRaf.current);
-    el.scrollLeft += e.deltaY * 0.7;
-    checkLoop(el);
-    applyStyles(el.scrollLeft);
-    if (wheelSnapTimer.current) window.clearTimeout(wheelSnapTimer.current);
-    wheelSnapTimer.current = window.setTimeout(() => snapToNearest(0), 80);
+    const go = (now: number) => {
+      const t = Math.min((now - t0) / duration, 1);
+      el.scrollLeft = start + diff * easeOut(t);
+      checkLoop(el);
+      applyStyles(el.scrollLeft);
+      if (t < 1) snapRaf.current = requestAnimationFrame(go);
+    };
+    snapRaf.current = requestAnimationFrame(go);
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -183,6 +193,7 @@ export default function TrendsSection() {
     if (!el) return;
     if (snapRaf.current) cancelAnimationFrame(snapRaf.current);
     isDragging.current = true;
+    didDrag.current = false;
     el.style.cursor = 'grabbing';
     startX.current = e.pageX;
     scrollStart.current = el.scrollLeft;
@@ -195,6 +206,7 @@ export default function TrendsSection() {
     if (!isDragging.current) return;
     const el = trackRef.current;
     if (!el) return;
+    if (Math.abs(e.pageX - startX.current) > 4) didDrag.current = true;
     el.scrollLeft = scrollStart.current - (e.pageX - startX.current);
     checkLoop(el);
     applyStyles(el.scrollLeft);
@@ -249,6 +261,7 @@ export default function TrendsSection() {
     el.scrollLeft = start;
     applyStyles(start);
     updateInfo(0);
+
     // Re-center when card step changes (responsive width).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepSize]);
@@ -348,13 +361,12 @@ export default function TrendsSection() {
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
-          onWheel={onWheel}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
           {ITEMS.map((item, i) => (
-            <div key={i} className="wc-card" ref={(el) => { cardRefs.current[i] = el; }}>
+            <div key={i} className="wc-card" ref={(el) => { cardRefs.current[i] = el; }} onClick={() => { if (!didDrag.current) snapToCard(i); }}>
               <img src={item.image} alt={item.season} draggable={false} />
               <div className="wc-inner">
                 <div className="season-badge" style={{ backgroundColor: item.accent }}>

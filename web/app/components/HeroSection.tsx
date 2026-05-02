@@ -200,7 +200,7 @@ export default function HeroSection() {
         .hero-line1-enter { opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards; }
         .hero-line2-enter { opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.65s forwards; }
         .hero-line3-enter { opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards; }
-        .hero-divider-enter { transform-origin: left; animation: lineGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.9s forwards; }
+        .hero-divider-enter { transform-origin: left; animation: lineGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.9s both; }
         .hero-body-enter { opacity: 0; animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1s forwards; }
         .hero-btn1-enter { opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.1s forwards; }
         .hero-btn2-enter { opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards; }
@@ -265,6 +265,7 @@ export default function HeroSection() {
             src="/ConHacksLandingPage.jpeg"
             alt="Model"
             className={`hero-image ${loaded ? 'hero-img-enter' : ''}`}
+            style={loaded ? undefined : { opacity: 0 }}
           />
           <div className="hero-gradient absolute inset-0" />
         </div>

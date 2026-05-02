@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import CollectionGallery from './CollectionGallery';
+import { getProductsServer } from '../../lib/styleon';
 
 const CATEGORIES = {
   outerwear: {
@@ -69,6 +70,7 @@ export default async function CollectionPage({
   if (!CATEGORIES[category as CategoryKey]) notFound();
 
   const meta = CATEGORIES[category as CategoryKey];
+  const initialItems = await getProductsServer(category === 'all' ? undefined : category);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#ffe8d6' }}>
@@ -129,7 +131,7 @@ export default async function CollectionPage({
         </div>
       </section>
 
-      <CollectionGallery initialCategory={category as CategoryKey} />
+      <CollectionGallery initialCategory={category as CategoryKey} initialItems={initialItems} />
 
       <Footer />
     </div>

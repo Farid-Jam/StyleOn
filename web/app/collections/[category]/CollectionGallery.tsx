@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
@@ -19,20 +19,36 @@ type FilterKey = (typeof FILTERS)[number]['key'];
 
 interface Props {
   initialCategory: FilterKey;
+  initialItems?: Product[];
 }
 
-export default function CollectionGallery({ initialCategory }: Props) {
+export default function CollectionGallery({ initialCategory, initialItems }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<FilterKey>(initialCategory);
-  const [items, setItems] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<Product[]>(initialItems ?? []);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Skip the first client-side fetch when the server already provided data
+  const skipFetch = useRef(initialItems !== undefined);
 
+  // Sync with server data when navigating between collection pages
   useEffect(() => {
     setActive(initialCategory);
-  }, [initialCategory]);
+    if (initialItems !== undefined) {
+      setItems(initialItems);
+      setError('');
+      setLoading(false);
+      skipFetch.current = true;
+    } else {
+      skipFetch.current = false;
+    }
+  }, [initialCategory, initialItems]);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     let alive = true;
     setLoading(true);
     setError('');
@@ -132,7 +148,9 @@ export default function CollectionGallery({ initialCategory }: Props) {
           </div>
         )}
 
-        {grouped ? (
+        {loading ? (
+          <SkeletonGrid />
+        ) : grouped ? (
           <div className="space-y-16">
             {Object.entries(grouped).map(([cat, list]) => (
               <CategoryGroup key={cat} category={cat} items={list} />
@@ -143,6 +161,25 @@ export default function CollectionGallery({ initialCategory }: Props) {
         )}
       </div>
     </section>
+  );
+}
+
+function SkeletonTile() {
+  return (
+    <div
+      className="skeleton"
+      style={{ height: '340px', borderRadius: '3px' }}
+    />
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+      {Array.from({ length: 12 }).map((_, i) => (
+        <SkeletonTile key={i} />
+      ))}
+    </div>
   );
 }
 

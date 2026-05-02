@@ -27,7 +27,7 @@
    will only appear in the browser console, not as a popup. */
 nextjs-portal { display: none !important; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 
 body {
   background: var(--background);

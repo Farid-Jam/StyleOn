@@ -17,6 +17,7 @@ import TryOnModal from '../../components/TryOnModal';
 
 interface Props {
   itemId: string;
+  initialProduct?: Product;
 }
 
 type Unit = 'imperial' | 'metric';
@@ -73,12 +74,9 @@ function ProgStep({ num, label, status }: { num: number; label: string; status: 
   );
 }
 
-export default function TryOnExperience({ itemId }: Props) {
-  const [product, setProduct] = useState<Product | null>(null);
+export default function TryOnExperience({ itemId, initialProduct }: Props) {
+  const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
   const [productError, setProductError] = useState('');
-
-  const [garmentImage, setGarmentImage] = useState<string | null>(null);
-  const [garmentLoading, setGarmentLoading] = useState(false);
 
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [bodyMetrics, setBodyMetrics] = useState<BodyMetrics | null>(null);
@@ -102,26 +100,17 @@ export default function TryOnExperience({ itemId }: Props) {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
+    if (initialProduct) {
+      setProduct(initialProduct);
+      return;
+    }
     let alive = true;
     setProductError('');
     getProduct(itemId)
       .then((p) => { if (alive) setProduct(p); })
       .catch((e: unknown) => { if (alive) setProductError(e instanceof Error ? e.message : 'Failed to load item.'); });
     return () => { alive = false; };
-  }, [itemId]);
-
-  useEffect(() => {
-    if (!product) return;
-    const url = product.image_url ?? product.try_on_ready_image_url;
-    if (!url) return;
-    let alive = true;
-    setGarmentLoading(true);
-    fetchImageAsDataUrl(url)
-      .then((d) => { if (alive) setGarmentImage(d); })
-      .catch(() => {})
-      .finally(() => { if (alive) setGarmentLoading(false); });
-    return () => { alive = false; };
-  }, [product]);
+  }, [itemId, initialProduct]);
 
   useEffect(() => {
     setBodyMetrics(null);
@@ -202,10 +191,12 @@ export default function TryOnExperience({ itemId }: Props) {
     return Number.isNaN(c) ? '' : `${c} cm`;
   }, [unit, feet, inches, cm]);
 
+  const garmentUrl = product?.image_url ?? product?.try_on_ready_image_url ?? null;
+
   const canSubmit =
     !!personImage &&
     !!product &&
-    !!garmentImage &&
+    !!garmentUrl &&
     (!!selectedSize || !itemHasSizes) &&
     !!heightString &&
     !loading;
@@ -222,13 +213,14 @@ export default function TryOnExperience({ itemId }: Props) {
   }
 
   async function handleSubmit() {
-    if (!canSubmit || !garmentImage || !personImage) return;
+    if (!canSubmit || !garmentUrl || !personImage) return;
     setError('');
     setGeneratedImage(null);
     setFitText('');
     setLoading(true);
     setModalOpen(true);
     try {
+      const garmentImage = await fetchImageAsDataUrl(garmentUrl);
       const [tryOnUrl, fit] = await Promise.all([
         generateTryOn({ personImage, garmentImage, size: selectedSize, height: heightString, bodyMetrics }),
         getFitRecommendation(personImage, heightString).catch(() => ''),
@@ -242,7 +234,7 @@ export default function TryOnExperience({ itemId }: Props) {
     }
   }
 
-  const garmentSrc = garmentImage ?? product?.image_url ?? product?.try_on_ready_image_url ?? '';
+  const garmentSrc = garmentUrl ?? '';
 
   const step1Done = !!personImage;
   const step2Done = (!!selectedSize || !itemHasSizes) && !!heightString;
@@ -373,7 +365,7 @@ export default function TryOnExperience({ itemId }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', color: '#6b705c' }}>
-                {garmentLoading ? 'Loading…' : 'Image unavailable.'}
+                Image unavailable.
               </span>
             </div>
           )}
@@ -389,9 +381,9 @@ export default function TryOnExperience({ itemId }: Props) {
             position: 'absolute', top: '28px', left: '28px',
             padding: '5px 14px',
             fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase',
-            background: 'rgba(255,232,214,0.12)',
+            background: 'rgba(67,72,54,0.72)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,232,214,0.28)',
+            border: '1px solid rgba(255,232,214,0.18)',
             color: '#ffe8d6', borderRadius: '2px',
           }}>
             The Piece

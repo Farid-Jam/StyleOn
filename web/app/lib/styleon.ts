@@ -105,3 +105,34 @@ export async function getFitRecommendation(personImage: string, height: string):
   });
   return text;
 }
+
+// Server-side fetch functions — call upstream directly, safe to use in Server Components only.
+const STYLEON_API_SERVER = process.env.STYLEON_API_URL ?? 'http://localhost:3001';
+
+export async function getProductsServer(category?: string, limit?: number): Promise<Product[]> {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (limit !== undefined) params.set('limit', String(limit));
+  const query = params.toString();
+  try {
+    const res = await fetch(`${STYLEON_API_SERVER}/api/products${query ? `?${query}` : ''}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function getProductServer(id: string): Promise<Product | null> {
+  try {
+    const res = await fetch(`${STYLEON_API_SERVER}/api/products/${encodeURIComponent(id)}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
