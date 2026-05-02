@@ -70,7 +70,10 @@ export default async function CollectionPage({
   if (!CATEGORIES[category as CategoryKey]) notFound();
 
   const meta = CATEGORIES[category as CategoryKey];
-  const initialItems = await getProductsServer(category === 'all' ? undefined : category);
+  const initialItems = await getProductsServer(
+    category === 'all' ? undefined : category,
+    category === 'all' ? 2000 : undefined,
+  );
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#ffe8d6' }}>

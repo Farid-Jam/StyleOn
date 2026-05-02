@@ -1,27 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision';
-import { ArrowUpRight, Camera, MessageCircle, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
+import { ArrowUpRight, Camera, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
 import FaceCamera from './FaceCamera';
-import AvatarExplainer from './AvatarExplainer';
 import { extractColors, rgbToHex, type RGB } from '../lib/colorExtraction';
 import { ANALYSIS_STORAGE_KEY } from '../lib/colorMatching';
 import type { AnalysisResult } from '../lib/types';
 
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm`;
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-
-const INTRO_SCRIPT =
-  "Welcome! I'm your color guide. Color analysis studies the natural pigments of your skin, eyes, and hair to find the season — Spring, Summer, Autumn, or Winter — that flatters you most. In a moment, our vision engine will read those tones from your camera. Once you press Analyze My Colors, I'll walk you through what your palette means and which shades to wear or skip.";
-
-function buildResultScript(r: AnalysisResult): string {
-  const best = r.best_colors.slice(0, 3).join(', ');
-  const avoid = r.avoid_colors.slice(0, 2).join(', ');
-  return `Wonderful — your season is ${r.season}. ${r.description} Your undertone reads as ${r.undertone}, with ${r.contrast.toLowerCase()} contrast, and ${r.metal} jewelry will sit best against your skin. Lean into shades like ${best}, and ease away from tones such as ${avoid}, which tend to wash out your natural palette.`;
-}
 
 interface DisplayColors { skin: string; eye: string; hair: string }
 
@@ -49,16 +39,10 @@ function LiveSwatch({ label, hex }: { label: string; hex: string }) {
           transition: 'background-color 0.4s ease',
         }}
       />
-      <span
-        className="text-[10px] uppercase"
-        style={{ color: '#a5a58d', letterSpacing: '0.2em' }}
-      >
+      <span className="text-[10px] uppercase" style={{ color: '#a5a58d', letterSpacing: '0.2em' }}>
         {label}
       </span>
-      <span
-        className="text-[11px] font-mono"
-        style={{ color: '#6b705c' }}
-      >
+      <span className="text-[11px] font-mono" style={{ color: '#6b705c' }}>
         {hex}
       </span>
     </div>
@@ -67,10 +51,7 @@ function LiveSwatch({ label, hex }: { label: string; hex: string }) {
 
 function ResultSwatch({ hex, index, avoid = false }: { hex: string; index: number; avoid?: boolean }) {
   return (
-    <div
-      className="flex flex-col items-center gap-2 animate-pop-in"
-      style={{ animationDelay: `${index * 70}ms` }}
-    >
+    <div className="flex flex-col items-center gap-2 animate-pop-in" style={{ animationDelay: `${index * 70}ms` }}>
       <div className="relative group">
         <div
           className="w-14 h-14 transition-transform duration-200 group-hover:scale-110"
@@ -118,16 +99,10 @@ function Tag({ label, value }: { label: string; value: string }) {
         borderRadius: '2px',
       }}
     >
-      <span
-        className="text-[9px] uppercase"
-        style={{ color: '#a5a58d', letterSpacing: '0.2em' }}
-      >
+      <span className="text-[9px] uppercase" style={{ color: '#a5a58d', letterSpacing: '0.2em' }}>
         {label}
       </span>
-      <span
-        className="text-sm"
-        style={{ color: '#6b705c', fontFamily: "'Georgia', serif", fontWeight: 500 }}
-      >
+      <span className="text-sm" style={{ color: '#6b705c', fontFamily: "'Georgia', serif", fontWeight: 500 }}>
         {value}
       </span>
     </div>
@@ -135,26 +110,14 @@ function Tag({ label, value }: { label: string; value: string }) {
 }
 
 function SwatchRow({
-  label,
-  hexes,
-  avoid = false,
-  skeletonCount,
-  loading,
-  indexOffset = 0,
+  label, hexes, avoid = false, skeletonCount, loading, indexOffset = 0,
 }: {
-  label: string;
-  hexes?: string[];
-  avoid?: boolean;
-  skeletonCount: number;
-  loading: boolean;
-  indexOffset?: number;
+  label: string; hexes?: string[]; avoid?: boolean;
+  skeletonCount: number; loading: boolean; indexOffset?: number;
 }) {
   return (
     <div>
-      <p
-        className="text-[10px] uppercase mb-4"
-        style={{ color: '#cb997e', letterSpacing: '0.25em' }}
-      >
+      <p className="text-[10px] uppercase mb-4" style={{ color: '#cb997e', letterSpacing: '0.25em' }}>
         {label}
       </p>
       <div className="flex items-start gap-4 flex-wrap">
@@ -184,8 +147,6 @@ export default function ColorAnalysis() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [frozenColors, setFrozenColors] = useState<DisplayColors | null>(null);
-  const [avatarActive, setAvatarActive] = useState(false);
-  const [avatarScript, setAvatarScript] = useState<string | null>(null);
 
   const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
@@ -196,22 +157,6 @@ export default function ColorAnalysis() {
   const smoothRef = useRef<{ skin: RGB; eye: RGB; hair: RGB } | null>(null);
   const frameRef = useRef(0);
   const latestColorsRef = useRef<DisplayColors | null>(null);
-
-  // Once activated, narrate the analysis result whenever a new one is generated.
-  useEffect(() => {
-    if (!avatarActive || !result) return;
-    setAvatarScript(buildResultScript(result));
-  }, [avatarActive, result]);
-
-  function handleExplain() {
-    setAvatarActive(true);
-    setAvatarScript(result ? buildResultScript(result) : INTRO_SCRIPT);
-  }
-
-  function handleCloseAvatar() {
-    setAvatarActive(false);
-    setAvatarScript(null);
-  }
 
   async function handleImageFile(file: File) {
     if (!file.type.startsWith('image/')) return;
@@ -236,14 +181,12 @@ export default function ColorAnalysis() {
         el.src = dataUrl;
       });
 
-      // Draw to canvas for color pixel sampling
       const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(img, 0, 0);
 
-      // Run face landmark detection in IMAGE mode
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
       const landmarker = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
@@ -375,37 +318,6 @@ export default function ColorAnalysis() {
 
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col gap-8">
-      {/* Explain CTA */}
-      <div className="flex items-center justify-end">
-        <button
-          onClick={handleExplain}
-          disabled={avatarActive}
-          className="flex items-center gap-2 px-4 py-2 text-[10px] uppercase transition-all duration-200"
-          style={{
-            border: '1px solid rgba(107,112,92,0.35)',
-            color: avatarActive ? '#a5a58d' : '#6b705c',
-            backgroundColor: avatarActive ? 'transparent' : 'rgba(255,232,214,0.7)',
-            borderRadius: '2px',
-            letterSpacing: '0.25em',
-            cursor: avatarActive ? 'default' : 'pointer',
-            opacity: avatarActive ? 0.6 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (avatarActive) return;
-            (e.currentTarget as HTMLButtonElement).style.borderColor = '#cb997e';
-            (e.currentTarget as HTMLButtonElement).style.color = '#cb997e';
-          }}
-          onMouseLeave={(e) => {
-            if (avatarActive) return;
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(107,112,92,0.35)';
-            (e.currentTarget as HTMLButtonElement).style.color = '#6b705c';
-          }}
-        >
-          <MessageCircle size={12} />
-          {avatarActive ? 'Guide Active' : 'Explain'}
-        </button>
-      </div>
-
       {/* Mode tabs */}
       <div
         style={{
@@ -483,38 +395,25 @@ export default function ColorAnalysis() {
                 type="button"
                 onClick={() => { setUploadedPhoto(null); setColors(null); setFrozenColors(null); latestColorsRef.current = null; }}
                 style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '999px',
-                  backgroundColor: 'rgba(255,232,214,0.9)',
-                  color: '#6b705c',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
+                  position: 'absolute', top: '12px', right: '12px',
+                  width: '32px', height: '32px', borderRadius: '999px',
+                  backgroundColor: 'rgba(255,232,214,0.9)', color: '#6b705c',
+                  border: 'none', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer',
                 }}
               >
                 <X size={14} />
               </button>
               {uploadProcessing && (
                 <div style={{
-                  position: 'absolute',
-                  inset: 0,
+                  position: 'absolute', inset: 0,
                   backgroundColor: 'rgba(255,232,214,0.7)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: '12px',
                 }}>
                   <div style={{
                     width: '32px', height: '32px', borderRadius: '50%',
-                    border: '2px solid rgba(107,112,92,0.2)',
-                    borderTopColor: '#6b705c',
+                    border: '2px solid rgba(107,112,92,0.2)', borderTopColor: '#6b705c',
                     animation: 'spin 0.9s linear infinite',
                   }} />
                   <p style={{ color: '#6b705c', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
@@ -529,13 +428,8 @@ export default function ColorAnalysis() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); handleImageFile(e.dataTransfer.files?.[0]); }}
               style={{
-                padding: '64px 32px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '16px',
-                cursor: 'pointer',
-                textAlign: 'center',
+                padding: '64px 32px', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'center',
               }}
             >
               <Upload size={32} style={{ color: '#a5a58d' }} />
@@ -579,10 +473,7 @@ export default function ColorAnalysis() {
             <LiveSwatch label="Hair" hex={frozenColors?.hair ?? colors.hair} />
           </>
         ) : (
-          <p
-            className="text-sm text-center"
-            style={{ color: '#a5a58d', letterSpacing: '0.05em' }}
-          >
+          <p className="text-sm text-center" style={{ color: '#a5a58d', letterSpacing: '0.05em' }}>
             {inputMode === 'camera'
               ? 'Position your face in the camera to detect your natural palette…'
               : 'Upload a photo to detect your natural palette…'}
@@ -628,16 +519,12 @@ export default function ColorAnalysis() {
             borderRadius: '4px',
           }}
         >
-          {/* Analyzed palette bar */}
           {frozenColors && (
             <div
               className="flex items-center gap-3 px-6 py-4"
               style={{ borderBottom: '1px solid rgba(107,112,92,0.12)' }}
             >
-              <span
-                className="text-[10px] uppercase"
-                style={{ color: '#a5a58d', letterSpacing: '0.25em' }}
-              >
+              <span className="text-[10px] uppercase" style={{ color: '#a5a58d', letterSpacing: '0.25em' }}>
                 Analyzed Palette
               </span>
               <div className="flex items-center gap-3 ml-auto">
@@ -649,11 +536,7 @@ export default function ColorAnalysis() {
                   <div key={label} className="flex items-center gap-1.5">
                     <div
                       className="w-4 h-4"
-                      style={{
-                        backgroundColor: hex,
-                        borderRadius: '50%',
-                        border: '1px solid rgba(107,112,92,0.25)',
-                      }}
+                      style={{ backgroundColor: hex, borderRadius: '50%', border: '1px solid rgba(107,112,92,0.25)' }}
                     />
                     <span className="text-[10px] font-mono" style={{ color: '#6b705c' }}>{hex}</span>
                   </div>
@@ -663,7 +546,6 @@ export default function ColorAnalysis() {
           )}
 
           <div className="p-7 md:p-9 flex flex-col gap-8">
-            {/* Season + description */}
             {analyzing ? (
               <div className="flex flex-col gap-3">
                 <SkeletonBlock w="w-56" h="h-7" />
@@ -680,10 +562,7 @@ export default function ColorAnalysis() {
               </div>
             ) : result ? (
               <div className="flex flex-col gap-4 animate-fade-up">
-                <span
-                  className="block text-[10px] uppercase"
-                  style={{ color: '#cb997e', letterSpacing: '0.3em' }}
-                >
+                <span className="block text-[10px] uppercase" style={{ color: '#cb997e', letterSpacing: '0.3em' }}>
                   Your Season
                 </span>
                 <div className="flex items-baseline gap-4 flex-wrap">
@@ -701,23 +580,13 @@ export default function ColorAnalysis() {
                     </em>
                   </h2>
                 </div>
-                <div
-                  style={{
-                    height: '1px',
-                    width: '60px',
-                    backgroundColor: '#cb997e',
-                  }}
-                />
-                <p
-                  className="text-sm max-w-2xl"
-                  style={{ color: '#6b705c', lineHeight: '1.8', opacity: 0.85 }}
-                >
+                <div style={{ height: '1px', width: '60px', backgroundColor: '#cb997e' }} />
+                <p className="text-sm max-w-2xl" style={{ color: '#6b705c', lineHeight: '1.8', opacity: 0.85 }}>
                   {result.description}
                 </p>
               </div>
             ) : null}
 
-            {/* Tags */}
             <div className="flex items-center gap-3 flex-wrap">
               {analyzing ? (
                 <>
@@ -734,49 +603,21 @@ export default function ColorAnalysis() {
               ) : null}
             </div>
 
-            <SwatchRow
-              label="Best Colors"
-              hexes={result?.best_colors}
-              skeletonCount={5}
-              loading={analyzing}
-              indexOffset={0}
-            />
-
-            <SwatchRow
-              label="Best Hair Colors"
-              hexes={result?.best_hair_colors}
-              skeletonCount={4}
-              loading={analyzing}
-              indexOffset={5}
-            />
-
-            <SwatchRow
-              label="Colors to Avoid"
-              hexes={result?.avoid_colors}
-              avoid
-              skeletonCount={3}
-              loading={analyzing}
-              indexOffset={9}
-            />
+            <SwatchRow label="Best Colors" hexes={result?.best_colors} skeletonCount={5} loading={analyzing} indexOffset={0} />
+            <SwatchRow label="Best Hair Colors" hexes={result?.best_hair_colors} skeletonCount={4} loading={analyzing} indexOffset={5} />
+            <SwatchRow label="Colors to Avoid" hexes={result?.avoid_colors} avoid skeletonCount={3} loading={analyzing} indexOffset={9} />
 
             {!analyzing && result && (
               <Link
                 href="/collections/personalized"
                 className="flex items-center justify-center gap-2 w-full py-5 text-xs uppercase transition-all duration-300"
                 style={{
-                  backgroundColor: '#6b705c',
-                  color: '#ffe8d6',
-                  borderRadius: '2px',
-                  letterSpacing: '0.25em',
-                  cursor: 'pointer',
-                  border: 'none',
+                  backgroundColor: '#6b705c', color: '#ffe8d6',
+                  borderRadius: '2px', letterSpacing: '0.25em',
+                  cursor: 'pointer', border: 'none',
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#cb997e';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#6b705c';
-                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#cb997e'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#6b705c'; }}
               >
                 <Sparkles className="w-4 h-4" />
                 Shop Your Palette
@@ -789,12 +630,9 @@ export default function ColorAnalysis() {
                 onClick={handleReanalyze}
                 className="flex items-center justify-center gap-2 w-full py-4 text-xs uppercase transition-all duration-200"
                 style={{
-                  border: '1px solid #a5a58d',
-                  color: '#6b705c',
-                  borderRadius: '2px',
-                  backgroundColor: 'transparent',
-                  letterSpacing: '0.2em',
-                  cursor: 'pointer',
+                  border: '1px solid #a5a58d', color: '#6b705c',
+                  borderRadius: '2px', backgroundColor: 'transparent',
+                  letterSpacing: '0.2em', cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.borderColor = '#cb997e';
@@ -812,12 +650,6 @@ export default function ColorAnalysis() {
           </div>
         </div>
       )}
-
-      <AvatarExplainer
-        active={avatarActive}
-        script={avatarScript}
-        onClose={handleCloseAvatar}
-      />
     </div>
   );
 }

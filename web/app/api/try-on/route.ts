@@ -1,8 +1,22 @@
 import type { NextRequest } from 'next/server';
+import { GoogleAuth } from 'google-auth-library';
 
 const PROJECT_ID = process.env.GCP_PROJECT_ID ?? 'syleon';
 const LOCATION = process.env.GCP_LOCATION ?? 'global';
 const IMAGE_MODEL = process.env.VERTEX_IMAGE_MODEL ?? 'gemini-3.1-flash-image-preview';
+
+let auth: GoogleAuth | null = null;
+function getAuth(): GoogleAuth {
+  if (!auth) {
+    const keyJson = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    if (!keyJson) throw new Error('GCP_SERVICE_ACCOUNT_KEY is not set.');
+    auth = new GoogleAuth({
+      credentials: JSON.parse(keyJson),
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+  }
+  return auth;
+}
 
 interface BodyMetrics {
   build: string;
@@ -103,12 +117,13 @@ function extractText(json: VertexResponse) {
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const token = process.env.GCP_ACCESS_TOKEN;
-  if (!token) {
-    return Response.json(
-      { error: 'GCP_ACCESS_TOKEN not set. Run `gcloud auth application-default print-access-token` and restart the dev server.' },
-      { status: 500 },
-    );
+  let token: string;
+  try {
+    token = (await getAuth().getAccessToken()) ?? '';
+    if (!token) throw new Error('Empty token');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return Response.json({ error: `GCP auth failed: ${msg}` }, { status: 500 });
   }
 
   let body: RequestBody;
@@ -154,7 +169,7 @@ export async function POST(request: NextRequest) {
   if (!upstream.ok) {
     let message = `Vertex AI request failed (${upstream.status})`;
     if (upstream.status === 401 || upstream.status === 403) {
-      message = 'Vertex AI auth failed. Refresh GCP_ACCESS_TOKEN and restart the dev server.';
+      message = 'Vertex AI auth failed. Check that GCP_SERVICE_ACCOUNT_KEY is set correctly and the service account has the Vertex AI User role.';
     }
     try {
       const errBody = await upstream.json();

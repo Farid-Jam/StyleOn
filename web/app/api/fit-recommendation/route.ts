@@ -1,8 +1,22 @@
 import type { NextRequest } from 'next/server';
+import { GoogleAuth } from 'google-auth-library';
 
 const PROJECT_ID = process.env.GCP_PROJECT_ID ?? 'syleon';
 const LOCATION = process.env.GCP_LOCATION ?? 'global';
 const VISION_MODEL = process.env.VERTEX_VISION_MODEL ?? 'gemini-2.5-flash';
+
+let auth: GoogleAuth | null = null;
+function getAuth(): GoogleAuth {
+  if (!auth) {
+    const keyJson = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    if (!keyJson) throw new Error('GCP_SERVICE_ACCOUNT_KEY is not set.');
+    auth = new GoogleAuth({
+      credentials: JSON.parse(keyJson),
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    });
+  }
+  return auth;
+}
 
 interface RequestBody {
   personImage: string;
@@ -30,12 +44,13 @@ interface VertexResponse {
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const token = process.env.GCP_ACCESS_TOKEN;
-  if (!token) {
-    return Response.json(
-      { error: 'GCP_ACCESS_TOKEN not set. Run `gcloud auth application-default print-access-token`.' },
-      { status: 500 },
-    );
+  let token: string;
+  try {
+    token = (await getAuth().getAccessToken()) ?? '';
+    if (!token) throw new Error('Empty token');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return Response.json({ error: `GCP auth failed: ${msg}` }, { status: 500 });
   }
 
   let body: RequestBody;
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
   }
 
   const data = stripDataUrlPrefix(personImage);
-  const prompt = `Look at this person's photo and their height of ${height}. Estimate their body proportions — shoulder width, waist, hips relative to their height. Then given a standard clothing size chart (S: chest 34-36", M: 38-40", L: 42-44"), give a short 2-sentence fit recommendation. Be conversational, not clinical.`;
+  const prompt = `Look at this photo and the height of ${height}. Estimate the body proportions — shoulder width, waist, hips relative to height. Then given a standard clothing size chart (S: chest 34-36", M: 38-40", L: 42-44"), give a short 2-sentence fit recommendation addressed directly to the person using "you". Be conversational, not clinical.`;
 
   const url = `https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${VISION_MODEL}:generateContent`;
   const upstreamBody = {

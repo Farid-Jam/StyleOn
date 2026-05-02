@@ -53,7 +53,8 @@ export default function CollectionGallery({ initialCategory, initialItems }: Pro
     setLoading(true);
     setError('');
     const queryCategory = active === 'all' ? undefined : active;
-    getProducts(queryCategory)
+    const queryLimit = active === 'all' ? 2000 : undefined;
+    getProducts(queryCategory, queryLimit)
       .then((data) => {
         if (alive) setItems(data);
       })
