@@ -1,7 +1,7 @@
 # WearHouse
 
 <div align="center">
-  <a href="https://devpost.com/software/WearHouse">
+  <a href="https://devpost.com/software/styleon">
     <img src="WearHouse.png" alt="WearHouse" width="800">
   </a>
   <p><i>Click the image to view the project on Devpost</i></p>
